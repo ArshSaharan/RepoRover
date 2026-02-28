@@ -1,1 +1,160 @@
-<p>dashboard works!</p>
+<div class="rr-layout">
+  <app-sidebar></app-sidebar>
+
+  <div class="rr-main">
+    <!-- Top bar -->
+    <header class="dash-topbar">
+      <div class="dash-page-label">DASHBOARD</div>
+      <div class="dash-topbar-right">
+        <div class="dash-search">
+          <lucide-icon [img]="Search" size="13" color="#525252"></lucide-icon>
+          <input type="text" placeholder="Search repositories...">
+          <span class="dash-search-kbd">⌘K</span>
+        </div>
+        <button class="dash-bell">
+          <lucide-icon [img]="Bell" size="16"></lucide-icon>
+          <span class="dash-bell-dot"></span>
+        </button>
+      </div>
+    </header>
+
+    <div class="dash-body">
+      <!-- Stat Cards -->
+      <div class="row g-3 mb-4">
+        @for (s of stats; track s.label) {
+          <div class="col-12 col-sm-4">
+            <div class="stat-card rr-card">
+              <div class="stat-card-top">
+                <div class="stat-card-label">{{ s.label }}</div>
+                <div class="stat-card-icon">
+                  <lucide-icon [img]="s.icon" size="16" [color]="'#f97316'"></lucide-icon>
+                </div>
+              </div>
+              <div class="stat-card-value">{{ s.value }}</div>
+              <div class="stat-card-sub">
+                @if (s.delta) {
+                  <span class="stat-delta" [class.positive]="s.positive">{{ s.delta }}</span>
+                }
+                {{ s.deltaLabel }}
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Recommended -->
+      <div class="dash-section">
+        <div class="dash-section-header">
+          <div>
+            <div class="dash-section-title">Recommended for You</div>
+            <div class="dash-section-sub">Based on your TypeScript and Rust activity.</div>
+          </div>
+          <a href="#" class="dash-view-all">
+            VIEW ALL <lucide-icon [img]="ArrowUpRight" size="12"></lucide-icon>
+          </a>
+        </div>
+        <div class="row g-3">
+          @for (repo of recommendations; track repo.name; let i = $index) {
+            <div class="col-12 col-sm-6 col-xl-3">
+              <div class="repo-card rr-card h-100">
+                <div class="repo-card-top">
+                  <div class="repo-card-avatar">{{ repo.name[0].toUpperCase() }}</div>
+                  <div class="repo-info">
+                    <div class="repo-name">{{ repo.name }}</div>
+                    <span class="rr-tag" [class]="repo.lang">[{{ repo.lang }}]</span>
+                    <span class="repo-version">{{ repo.version }}</span>
+                  </div>
+                  <button class="repo-save" (click)="toggleSave(i)">
+                    <lucide-icon [img]="Bookmark" size="14" [color]="repo.saved ? '#f97316' : '#525252'"></lucide-icon>
+                  </button>
+                </div>
+                <p class="repo-desc">{{ repo.desc }}</p>
+                <div class="repo-match-row">
+                  <div class="match-circle" [style.borderColor]="matchColor(repo.match)" [style.color]="matchColor(repo.match)">
+                    {{ repo.match }}%
+                  </div>
+                  <span class="repo-match-label">MATCH</span>
+                  <button class="btn-rr-orange repo-view-btn">View Issues</button>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Urgent Issues -->
+      <div class="dash-section">
+        <div class="dash-section-title">Urgent Issues in Matched Repos</div>
+        <div class="rr-card mt-3 overflow-hidden">
+          <table class="issues-table w-100">
+            <thead>
+              <tr>
+                <th>ISSUE</th>
+                <th>REPOSITORY</th>
+                <th>TAGS</th>
+                <th>DIFFICULTY</th>
+                <th>ACTION</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (issue of urgentIssues; track issue.title) {
+                <tr>
+                  <td>{{ issue.title }}</td>
+                  <td class="text-orange font-mono" style="font-size:0.78rem">{{ issue.repo }}</td>
+                  <td>
+                    <div class="d-flex gap-1 flex-wrap">
+                      @for (tag of issue.tags; track tag) {
+                        <span class="rr-tag" [class]="tag === 'gfi' ? 'gfi' : tag === 'bug' ? 'bug' : tag === 'docs' ? 'docs' : 'perf'">{{ tag }}</span>
+                      }
+                    </div>
+                  </td>
+                  <td>
+                    <span class="difficulty-badge" [class]="issue.difficulty.toLowerCase()">{{ issue.difficulty }}</span>
+                  </td>
+                  <td>
+                    <button class="issue-action-btn">
+                      <lucide-icon [img]="ExternalLink" size="14"></lucide-icon>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right panel -->
+  <aside class="dash-right-panel">
+    <!-- Live Activity -->
+    <div class="panel-section">
+      <div class="panel-header">
+        <div class="live-dot"></div>
+        <span class="panel-title">LIVE ACTIVITY</span>
+      </div>
+      <div class="activity-feed">
+        @for (a of liveActivity; track a.time) {
+          <div class="activity-item">
+            <div class="activity-time">{{ a.time }}</div>
+            <div class="activity-text" [innerHTML]="a.html"></div>
+            @if (a.sub) {
+              <div class="activity-sub" [innerHTML]="a.sub"></div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Rover Tip -->
+    <div class="panel-section rover-tip">
+      <div class="panel-header">
+        <lucide-icon [img]="Zap" size="13" color="#f97316"></lucide-icon>
+        <span class="panel-title">ROVER TIP</span>
+      </div>
+      <p class="rover-tip-text">
+        Repositories with <span class="text-orange">good first issue</span> tags have a 48% higher acceptance rate for new contributors.
+      </p>
+    </div>
+  </aside>
+</div>

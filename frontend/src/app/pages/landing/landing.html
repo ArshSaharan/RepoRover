@@ -1,1 +1,189 @@
-<p>landing works!</p>
+﻿<!-- ===== NAVBAR ===== -->
+<nav class="rr-nav">
+  <div class="rr-nav-inner">
+    <a routerLink="/" class="rr-logo">
+      <div class="rr-logo-icon">
+        <lucide-icon [img]="Zap" size="16" color="#000"></lucide-icon>
+      </div>
+      <span>Repo-Rover</span>
+    </a>
+    <ul class="rr-nav-links">
+      <li><a href="#">Home</a></li>
+      <li><a href="#features" (click)="scrollTo($event, 'features')">Features</a></li>
+      <li><a href="#pricing" (click)="scrollTo($event, 'pricing')">Pricing</a></li>
+      <li><a href="#">Manifesto</a></li>
+    </ul>
+    <a routerLink="/login" class="btn-rr-primary btn-sm-nav">
+      Login <lucide-icon [img]="ArrowRight" size="14"></lucide-icon>
+    </a>
+    <!-- Mobile toggle -->
+    <button class="rr-nav-toggle d-md-none" (click)="mobileMenuOpen = !mobileMenuOpen">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+  <!-- Mobile menu -->
+  <div class="rr-nav-mobile" [class.open]="mobileMenuOpen">
+    <a href="#" (click)="mobileMenuOpen=false">Home</a>
+    <a href="#features" (click)="scrollTo($event, 'features'); mobileMenuOpen=false">Features</a>
+    <a href="#pricing" (click)="scrollTo($event, 'pricing'); mobileMenuOpen=false">Pricing</a>
+    <a href="#" (click)="mobileMenuOpen=false">Manifesto</a>
+    <a routerLink="/login" class="btn-rr-primary" (click)="mobileMenuOpen=false">Login</a>
+  </div>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="hero-section position-relative overflow-hidden">
+  <div class="hero-grid-bg"></div>
+  <div class="container hero-container text-center position-relative">
+    <div class="hero-badge rr-reveal rr-reveal--fade-up" style="--rr-delay:0ms">&#x25cf; V2.0: NOW SMELTING REPOS</div>
+    <h1 class="hero-title rr-reveal rr-reveal--fade-up" style="--rr-delay:80ms">
+      Forging the future of<br>
+      <span class="text-orange">Open Source</span>
+    </h1>
+    <p class="hero-subtitle rr-reveal rr-reveal--fade-up" style="--rr-delay:160ms">
+      Repo-Rover hammers through the noise to match your skills with the<br class="d-none d-md-block">
+      perfect open-source projects. Stop searching, start building.
+    </p>
+    <a routerLink="/join" class="btn-rr-primary hero-cta rr-reveal rr-reveal--fade-up" style="--rr-delay:240ms">
+      Join the Forge <lucide-icon [img]="ArrowRight" size="16"></lucide-icon>
+    </a>
+  </div>
+</section>
+
+<!-- ===== STATS ===== -->
+<section class="stats-section">
+  <div class="container">
+    <div class="stats-grid">
+      @for (s of stats; track s.label; let i = $index) {
+        <div class="stat-item rr-reveal rr-reveal--fade-up" [style]="'--rr-delay:' + (i * 80) + 'ms'">
+          <div class="stat-value">{{ s.value }}</div>
+          <div class="stat-label">{{ s.label }}</div>
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- ===== FEATURES ===== -->
+<section id="features" class="features-section">
+  <div class="container">
+    <div class="section-header text-center rr-reveal rr-reveal--fade-up">
+      <h2>Engineered for Impact</h2>
+      <p class="section-sub">Our AI algorithms sift through millions of lines of code to find issues that match your exact expertise level.</p>
+    </div>
+    <div class="row g-4 mt-2">
+      @for (f of features; track f.title; let i = $index) {
+        <div class="col-12 col-md-4">
+          <div class="feature-card rr-card h-100 rr-reveal rr-reveal--fade-up" [style]="'--rr-delay:' + (i * 100) + 'ms'">
+            <div class="feature-card-top">
+              <div class="feature-icon">
+                <lucide-icon [img]="f.icon" size="20" color="#f97316"></lucide-icon>
+              </div>
+              <div class="feature-badge-top">
+                <lucide-icon [img]="Bell" size="12" color="#525252"></lucide-icon>
+              </div>
+            </div>
+            <h4 class="feature-title">{{ f.title }}</h4>
+            <p class="feature-desc">{{ f.desc }}</p>
+            <div class="feature-preview font-mono">{{ f.preview }}</div>
+            <div class="feature-footer">
+              <span class="rr-tag">[{{ f.iconLabel }}]</span>
+              <lucide-icon [img]="ArrowRight" size="14" color="#525252"></lucide-icon>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- ===== INTEGRATION ===== -->
+<section class="integration-section">
+  <div class="container">
+    <div class="row align-items-center g-5">
+      <div class="col-12 col-lg-6">
+        <div class="code-block font-mono rr-reveal rr-reveal--fade-right">
+          <div class="code-dots">
+            <span class="dot red"></span>
+            <span class="dot yellow"></span>
+            <span class="dot green"></span>
+          </div>
+          <pre><span class="c-comment">// Initialize Rover Instance</span>
+<span class="c-keyword">const</span> <span class="c-var">rover</span> = <span class="c-keyword">new</span> <span class="c-class">Rover</span>(&#123;
+  skills: [<span class="c-str">'Rust'</span>, <span class="c-str">'TypeScript'</span>],
+  availability: <span class="c-str">'10h/week'</span>,
+  interests: [<span class="c-str">'Web3'</span>, <span class="c-str">'AI'</span>]
+&#125;);
+
+<span class="c-comment">// Start Scanning</span>
+<span class="c-keyword">await</span> <span class="c-var">rover</span>.<span class="c-fn">forgeConnection</span>();
+<span class="c-output">&gt; Connection established with 3 repositories.</span></pre>
+        </div>
+      </div>
+      <div class="col-12 col-lg-6">
+        <h2 class="integration-title rr-reveal rr-reveal--fade-left">Seamless Integration</h2>
+        <div class="steps-list">
+          @for (step of steps; track step.n; let i = $index) {
+            <div class="step-item rr-reveal rr-reveal--fade-left" [style]="'--rr-delay:' + (i * 100 + 80) + 'ms'">
+              <div class="step-num">{{ step.n }}</div>
+              <div>
+                <div class="step-title">{{ step.title }}</div>
+                <div class="step-desc">{{ step.desc }}</div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer class="rr-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-12 col-md-4 rr-reveal rr-reveal--fade-up" style="--rr-delay:0ms">
+        <a routerLink="/" class="rr-logo mb-3 d-inline-flex">
+          <div class="rr-logo-icon"><lucide-icon [img]="Zap" size="14" color="#000"></lucide-icon></div>
+          <span>Repo-Rover</span>
+        </a>
+        <p class="footer-tagline">Forging connections between developers and the code that powers the world.</p>
+        <div class="footer-socials">
+          <a href="#"><lucide-icon [img]="Code2" size="16"></lucide-icon></a>
+          <a href="#"><lucide-icon [img]="Star" size="16"></lucide-icon></a>
+          <a href="#"><lucide-icon [img]="Mail" size="16"></lucide-icon></a>
+        </div>
+      </div>
+      <div class="col-6 col-md-2 rr-reveal rr-reveal--fade-up" style="--rr-delay:80ms">
+        <div class="footer-col-title">PRODUCT</div>
+        <ul class="footer-links">
+          @for (item of footerProduct; track item) {
+            <li><a href="#">{{ item }}</a></li>
+          }
+        </ul>
+      </div>
+      <div class="col-6 col-md-2 rr-reveal rr-reveal--fade-up" style="--rr-delay:160ms">
+        <div class="footer-col-title">RESOURCES</div>
+        <ul class="footer-links">
+          @for (item of footerResources; track item) {
+            <li><a href="#">{{ item }}</a></li>
+          }
+        </ul>
+      </div>
+      <div class="col-12 col-md-4 rr-reveal rr-reveal--fade-up" style="--rr-delay:240ms">
+        <div class="footer-col-title">STAY UPDATED</div>
+        <div class="footer-subscribe">
+          <input type="email" placeholder="Enter your email" class="footer-input">
+          <button class="btn-rr-orange" style="padding: 10px 20px; border-radius: 6px; font-size: 0.85rem;">Subscribe</button>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; 2023 Repo-Rover Inc. All rights reserved.</span>
+      <div class="footer-bottom-links">
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Service</a>
+      </div>
+    </div>
+  </div>
+</footer>

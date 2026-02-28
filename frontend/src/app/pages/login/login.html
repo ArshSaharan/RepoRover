@@ -1,1 +1,73 @@
-<p>login works!</p>
+<div class="login-page">
+  <!-- Fire glow bg -->
+  <div class="login-glow-bg"></div>
+
+  <!-- Top bar -->
+  <nav class="login-topbar">
+    <a routerLink="/" class="rr-logo">
+      <div class="rr-logo-icon">
+        <lucide-icon [img]="Zap" size="14" color="#000"></lucide-icon>
+      </div>
+      <span>Repo-Rover</span>
+    </a>
+    <div class="login-topbar-right">
+      <a href="#" class="login-docs-link">Forge Documentation</a>
+      <a href="#" class="btn-rr-orange" style="padding: 8px 18px; font-size: 0.82rem; border-radius: 6px;">Contact Support</a>
+    </div>
+  </nav>
+
+  <!-- Card -->
+  <div class="login-center">
+    <div class="login-card">
+      <!-- Icon -->
+      <div class="login-icon-wrap">
+        <lucide-icon [img]="Wrench" size="26" color="#f97316"></lucide-icon>
+      </div>
+
+      <h2 class="login-title">Sign in to the Forge</h2>
+      <p class="login-subtitle">Access the AI-powered matching engine<br>for open-source development.</p>
+
+      <!-- GitHub -->
+      <button class="btn-github w-100">
+        <lucide-icon [img]="Github" size="18"></lucide-icon>
+        Continue with GitHub
+      </button>
+
+      <!-- Divider -->
+      <div class="login-divider">
+        <span>OR CONTINUE VIA</span>
+      </div>
+
+      <!-- Email & SSO -->
+      <div class="row g-2">
+        <div class="col-6">
+          <button class="btn-secondary-login w-100">
+            <lucide-icon [img]="Mail" size="15"></lucide-icon>
+            Email
+          </button>
+        </div>
+        <div class="col-6">
+          <button class="btn-secondary-login w-100">
+            <lucide-icon [img]="KeyRound" size="15"></lucide-icon>
+            SSO
+          </button>
+        </div>
+      </div>
+
+      <!-- Terms -->
+      <p class="login-terms">
+        By clicking continue, you agree to our
+        <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
+      </p>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="login-footer">
+    <a href="#" class="font-mono">[privacy_policy]</a>
+    <span>|</span>
+    <a href="#" class="font-mono">[terms_of_service]</a>
+    <span>|</span>
+    <a href="#" class="font-mono">[system_status]</a>
+  </div>
+</div>

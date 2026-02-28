@@ -1,1 +1,149 @@
-/* You can add global styles to this file, and also import other style files */
+﻿/* === Repo-Rover Global Styles === */
+
+:root {
+  --rr-bg-primary: #0a0a0a;
+  --rr-bg-secondary: #111111;
+  --rr-bg-card: #161616;
+  --rr-bg-card-hover: #1e1e1e;
+  --rr-bg-elevated: #1a1a1a;
+  --rr-border: rgba(255, 255, 255, 0.08);
+  --rr-border-hover: rgba(249, 115, 22, 0.4);
+  --rr-orange: #f97316;
+  --rr-orange-light: #fb923c;
+  --rr-orange-dim: rgba(249, 115, 22, 0.15);
+  --rr-orange-glow: rgba(249, 115, 22, 0.3);
+  --rr-text-primary: #f5f5f5;
+  --rr-text-secondary: #a3a3a3;
+  --rr-text-muted: #525252;
+  --rr-text-orange: #f97316;
+  --rr-green: #22c55e;
+  --rr-red: #ef4444;
+  --rr-blue: #3b82f6;
+  --rr-yellow: #eab308;
+  --rr-sidebar-width: 200px;
+  --rr-sidebar-bg: #0d0d0d;
+  --rr-transition: all 0.2s ease;
+  --rr-font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --rr-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; padding: 0; }
+body {
+  font-family: var(--rr-font-sans);
+  background-color: var(--rr-bg-primary);
+  color: var(--rr-text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--rr-bg-primary); }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #555; }
+
+.font-mono { font-family: var(--rr-font-mono); }
+.text-orange { color: var(--rr-orange) !important; }
+.text-muted-rr { color: var(--rr-text-secondary) !important; }
+.c-pointer { cursor: pointer; }
+
+.rr-tag {
+  display: inline-flex; align-items: center; padding: 2px 8px;
+  border-radius: 3px; font-size: 0.65rem; font-family: var(--rr-font-mono);
+  font-weight: 500; letter-spacing: 0.02em; text-transform: lowercase;
+  background: rgba(255,255,255,0.06); color: var(--rr-text-secondary);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.rr-tag.ts { background: rgba(59,130,246,0.15); color: #60a5fa; border-color: rgba(59,130,246,0.3); }
+.rr-tag.py { background: rgba(234,179,8,0.15); color: #fbbf24; border-color: rgba(234,179,8,0.3); }
+.rr-tag.rs { background: rgba(249,115,22,0.15); color: #fb923c; border-color: rgba(249,115,22,0.3); }
+.rr-tag.ml { background: rgba(168,85,247,0.15); color: #c084fc; border-color: rgba(168,85,247,0.3); }
+.rr-tag.bug { background: rgba(239,68,68,0.15); color: #f87171; border-color: rgba(239,68,68,0.3); }
+.rr-tag.perf { background: rgba(249,115,22,0.15); color: #fb923c; border-color: rgba(249,115,22,0.3); }
+.rr-tag.docs { background: rgba(59,130,246,0.15); color: #60a5fa; border-color: rgba(59,130,246,0.3); }
+.rr-tag.gfi { background: rgba(34,197,94,0.15); color: #4ade80; border-color: rgba(34,197,94,0.3); }
+.rr-tag.feat { background: rgba(168,85,247,0.15); color: #c084fc; border-color: rgba(168,85,247,0.3); }
+
+.rr-card {
+  background: var(--rr-bg-card); border: 1px solid var(--rr-border);
+  border-radius: 8px; transition: var(--rr-transition);
+}
+.rr-card:hover { border-color: var(--rr-border-hover); background: var(--rr-bg-card-hover); }
+
+.btn-rr-primary {
+  background: transparent; border: 1px solid var(--rr-orange); color: var(--rr-orange);
+  padding: 10px 24px; border-radius: 6px; font-weight: 600; font-size: 0.9rem;
+  transition: var(--rr-transition); cursor: pointer; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-rr-primary:hover { background: var(--rr-orange); color: #000; }
+
+.btn-rr-orange {
+  background: var(--rr-orange); border: none; color: #000;
+  padding: 10px 24px; border-radius: 6px; font-weight: 700; font-size: 0.9rem;
+  transition: var(--rr-transition); cursor: pointer; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-rr-orange:hover { background: var(--rr-orange-light); color: #000; }
+
+.rr-layout { display: flex; min-height: 100vh; }
+
+.rr-sidebar {
+  width: var(--rr-sidebar-width); min-height: 100vh;
+  background: var(--rr-sidebar-bg); border-right: 1px solid var(--rr-border);
+  display: flex; flex-direction: column; position: fixed; left: 0; top: 0; z-index: 100;
+}
+
+.rr-main { margin-left: var(--rr-sidebar-width); flex: 1; min-height: 100vh; display: flex; flex-direction: column; }
+
+@media (max-width: 768px) {
+  .rr-sidebar { transform: translateX(-100%); transition: transform 0.3s ease; }
+  .rr-sidebar.open { transform: translateX(0); }
+  .rr-main { margin-left: 0; }
+}
+
+.match-circle {
+  width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--rr-orange);
+  display: flex; align-items: center; justify-content: center; font-size: 0.7rem;
+  font-weight: 700; color: var(--rr-orange); background: var(--rr-orange-dim); flex-shrink: 0;
+}
+
+.live-dot {
+  width: 8px; height: 8px; background: var(--rr-green); border-radius: 50%;
+  animation: pulse-dot 2s infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+/* =============================================
+   SCROLL-REVEAL  (.rr-reveal + Lenis)
+   ============================================= */
+
+/* Base hidden state */
+.rr-reveal {
+  opacity: 0;
+  transition:
+    opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1) var(--rr-delay, 0ms),
+    transform 0.65s cubic-bezier(0.16, 1, 0.3, 1) var(--rr-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.rr-reveal--fade-up    { transform: translateY(32px); }
+.rr-reveal--fade-down  { transform: translateY(-32px); }
+.rr-reveal--fade-left  { transform: translateX(40px); }
+.rr-reveal--fade-right { transform: translateX(-40px); }
+
+/* Revealed state */
+.rr-revealed {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .rr-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}

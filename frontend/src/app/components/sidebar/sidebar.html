@@ -1,0 +1,56 @@
+<aside class="rr-sidebar">
+  <!-- Logo -->
+  <div class="sidebar-logo">
+    <a routerLink="/" class="rr-logo">
+      <div class="rr-logo-icon">
+        <lucide-icon [img]="Zap" size="14" color="#000"></lucide-icon>
+      </div>
+      <span>Repo-Rover</span>
+    </a>
+  </div>
+
+  <!-- Platform Nav -->
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">PLATFORM</div>
+    @for (item of navItems; track item.route) {
+      <a
+        [routerLink]="item.route"
+        routerLinkActive="active"
+        class="sidebar-nav-item"
+      >
+        <lucide-icon [img]="item.icon" size="15"></lucide-icon>
+        <span class="sidebar-nav-label">{{ item.label }}</span>
+        @if (item.badge) {
+          <span class="sidebar-badge">{{ item.badge }}</span>
+        }
+      </a>
+    }
+  </div>
+
+  <!-- System Nav -->
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">SYSTEM</div>
+    @for (item of systemItems; track item.route) {
+      <a [routerLink]="item.route" routerLinkActive="active" class="sidebar-nav-item">
+        <lucide-icon [img]="item.icon" size="15"></lucide-icon>
+        <span class="sidebar-nav-label">{{ item.label }}</span>
+      </a>
+    }
+  </div>
+
+  <div class="sidebar-spacer"></div>
+
+  <!-- User -->
+  <div class="sidebar-user">
+    <div class="sidebar-user-avatar">
+      <lucide-icon [img]="User" size="14" color="#f97316"></lucide-icon>
+    </div>
+    <div class="sidebar-user-info">
+      <div class="sidebar-user-name">Dev Alex</div>
+      <div class="sidebar-user-handle">&#64;dev_alex</div>
+    </div>
+    <button class="sidebar-logout">
+      <lucide-icon [img]="LogOut" size="13" color="#525252"></lucide-icon>
+    </button>
+  </div>
+</aside>
