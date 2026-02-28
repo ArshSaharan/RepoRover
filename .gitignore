@@ -1,0 +1,103 @@
+﻿########################
+# Global
+########################
+# OS files
+.DS_Store
+Thumbs.db
+[Dd]esktop.ini
+
+# Env / Mics
+.env
+*.env
+.env.*
+*.log
+*.tgz
+
+# IDE and Editors
+.vscode/
+.idea/
+*~
+*.swp
+*.swo
+
+########################
+# Python Backend
+########################
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.class
+*.so
+
+# Virtual envs
+venv/
+.venv/
+env/
+.env/
+
+# Python packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+*.manifest
+*.spec
+
+# Pytest / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.slog
+.hypothesis/
+.pytest_cache/
+pytest_cache/
+
+# Type checkers
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.typeguard/
+
+########################
+# Node / Angular Frontend
+########################
+# Node dependencies
+node_modules/
+
+# Angular build output
+dist/
+tmp/
+out-tsc/
+bazel-out/
+.angular/
+.angular/cache/
+
+# Node logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Angular / JS testing coverage
+coverage/
+
+# Miscellaneous
+.npm/
