@@ -1,0 +1,421 @@
+::host {
+    display: block;
+}
+
+.pb-0 {
+    padding-bottom: 0 !important;
+}
+
+.rr-layout {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.rr-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    height: 100vh;
+}
+
+/* Top bar - Neo-Brutalist */
+.dash-topbar.brutal-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    height: 60px;
+    border-bottom: 3px solid #000;
+    background: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    flex-shrink: 0;
+}
+
+.dash-page-label {
+    font-size: 0.85rem;
+    font-family: var(--rr-font-mono);
+    color: #000;
+    letter-spacing: 0.15em;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.dash-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.dash-bell.brutal-btn {
+    width: 36px;
+    height: 36px;
+    background: #fff;
+    border: 2px solid #000;
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    color: #000;
+    box-shadow: 2px 2px 0px #000;
+    transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.dash-bell.brutal-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: 0px 0px 0px #000;
+}
+
+.dash-body {
+    flex: 1;
+    padding: 32px 24px;
+    overflow-y: auto;
+    background-color: #f4f4f0; /* Light textured background for brutalism */
+    position: relative;
+}
+
+/* Page Loader */
+.page-loader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #000;
+}
+.spin-icon {
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+}
+
+.settings-page.brutal-page {
+    max-width: 900px;
+    margin: 0 auto;
+    animation: fadeIn 0.4s ease-out;
+    padding-bottom: 80px; /* fix for scroll */
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.settings-header {
+    margin-bottom: 40px;
+}
+
+.settings-title.brutal-title {
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: #000;
+    margin-bottom: 8px;
+    letter-spacing: -0.04em;
+    text-transform: uppercase;
+}
+
+.settings-subtitle {
+    color: #444;
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.settings-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+/* Neo-Brutalist Cards */
+.settings-card.brutal-card {
+    background: #fff;
+    border: 3px solid #000;
+    border-radius: 0;
+    overflow: hidden;
+    box-shadow: 6px 6px 0px #000;
+    padding: 0;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card-header.brutal-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 24px;
+    background: #ffd000; /* vibrant yellow accent */
+    border-bottom: 3px solid #000;
+}
+
+.card-icon.brutal-icon {
+    width: 40px;
+    height: 40px;
+    background: #fff;
+    color: #000;
+    border: 2px solid #000;
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 2px 2px 0px #000;
+}
+
+.brutal-heading {
+    font-size: 1.3rem !important;
+    font-weight: 800 !important;
+    color: #000 !important;
+    margin: 0;
+    text-transform: uppercase;
+}
+
+.card-body {
+    padding: 32px;
+}
+
+/* GitHub Stats Overrides */
+.github-stats-card.brutal-card {
+    padding: 32px;
+    background: #fff;
+}
+
+.stat-profile-header {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.stat-avatar.brutal-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 0;
+    border: 3px solid #000;
+    box-shadow: 4px 4px 0px #000;
+}
+
+.stat-username {
+    color: #444;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.stat-follow-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.1rem;
+    margin-bottom: 20px;
+    color: #000;
+}
+
+.brutal-strong {
+    font-weight: 800;
+    font-size: 1.2rem;
+}
+
+.text-muted {
+    color: #555;
+    font-weight: 500;
+}
+
+.stat-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 32px;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #000;
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+
+.stat-achievements {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 3px dashed #000;
+}
+
+.achievements-list {
+    display: flex;
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.achievement-badge.brutal-badge {
+    width: 64px;
+    height: 64px;
+    border-radius: 0;
+    border: 3px solid #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-shadow: 4px 4px 0px #000;
+    background: #fff;
+    padding: 4px;
+}
+
+.badge-count.brutal-count {
+    position: absolute;
+    bottom: -10px;
+    right: -10px;
+    background: #ffd000;
+    color: #000;
+    font-size: 0.85rem;
+    font-weight: 900;
+    padding: 4px 8px;
+    border: 2px solid #000;
+    box-shadow: 2px 2px 0px #000;
+}
+
+.btn-icon.brutal-btn {
+    background: #fff;
+    border: 2px solid #000;
+    color: #000;
+    padding: 8px;
+    cursor: pointer;
+    box-shadow: 2px 2px 0px #000;
+    transition: transform 0.1s, box-shadow 0.1s;
+    display: flex;
+}
+.btn-icon.brutal-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: 0px 0px 0px #000;
+}
+
+.llm-desc.brutal-desc {
+    font-size: 1.05rem;
+    color: #000;
+    margin-bottom: 24px;
+    line-height: 1.6;
+    background: #e6e6fa;
+    padding: 16px;
+    border: 3px solid #000;
+    font-weight: 500;
+    box-shadow: 4px 4px 0px #000;
+}
+
+.rr-input.brutal-input {
+    width: 100%;
+    padding: 16px;
+    background: #fff;
+    border: 3px solid #000;
+    color: #000;
+    font-size: 1rem;
+    font-family: var(--rr-font-mono);
+    box-shadow: 4px 4px 0px #000;
+    transition: all 0.1s;
+}
+
+.rr-input.brutal-input:focus {
+    outline: none;
+    background: #fffef0;
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0px #000;
+}
+
+.markdown-preview.brutal-preview {
+    font-family: var(--rr-font-sans);
+    font-size: 1.05rem;
+    line-height: 1.7;
+    background: #fff;
+    color: #000;
+    border: 3px solid #000;
+    padding: 24px;
+    min-height: 300px;
+    box-shadow: 6px 6px 0px #000;
+    font-weight: 500;
+}
+.markdown-preview.brutal-preview h1,
+.markdown-preview.brutal-preview h2,
+.markdown-preview.brutal-preview h3 {
+    font-weight: 900;
+    text-transform: uppercase;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+}
+.markdown-preview.brutal-preview ul {
+    margin-top: 0.5em;
+    padding-left: 2em;
+}
+.markdown-preview.brutal-preview a {
+    color: #000;
+    font-weight: 800;
+    text-decoration: none;
+    border-bottom: 3px solid #ff4b4b;
+}
+.markdown-preview.brutal-preview a:hover {
+    background-color: #ff4b4b;
+    color: #fff;
+}
+
+.card-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 16px;
+    margin-top: 32px;
+    border-top: 3px dashed #000;
+    padding-top: 24px;
+}
+
+.success-msg {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #000;
+    font-size: 1rem;
+    font-weight: 800;
+    background: #00ff88;
+    padding: 6px 12px;
+    border: 2px solid #000;
+    box-shadow: 2px 2px 0px #000;
+    animation: fadeIn 0.3s ease;
+}
+
+.btn-rr-secondary.brutal-btn-orange {
+    background: #ff4b4b;
+    color: #fff;
+    border: 3px solid #000;
+    border-radius: 0;
+    padding: 12px 24px;
+    font-size: 1.05rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    box-shadow: 4px 4px 0px #000;
+    transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.btn-rr-secondary.brutal-btn-orange:hover:not(:disabled) {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0px #000;
+}
+
+.btn-rr-secondary.brutal-btn-orange:active:not(:disabled) {
+    transform: translate(2px, 2px);
+    box-shadow: 0px 0px 0px #000;
+}
+
+.btn-rr-secondary.brutal-btn-orange:disabled {
+    background: #ccc;
+    color: #666;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
+@keyframes spin {
+    100% { transform: rotate(360deg); }
+}
+
+.mt-4 { margin-top: 1.5rem; }

@@ -101,3 +101,5 @@ coverage/
 
 # Miscellaneous
 .npm/
+serviceAccountKey.json
+backend/data/llm_profiles/

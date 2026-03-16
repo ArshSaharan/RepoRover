@@ -4,11 +4,14 @@ import {
   Bookmark, ArrowUpRight, Activity, ExternalLink, GitMerge,
   AlertCircle, BarChart2
 } from 'lucide-angular';
+import { CommonModule } from '@angular/common';
 import { Sidebar } from '../../components/sidebar/sidebar';
+import { Onboarding } from '../../components/onboarding/onboarding';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [LucideAngularModule, Sidebar],
+  imports: [LucideAngularModule, CommonModule, Sidebar, Onboarding],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
 })
@@ -25,6 +28,12 @@ export class Dashboard {
   readonly GitMerge = GitMerge;
   readonly AlertCircle = AlertCircle;
   readonly BarChart2 = BarChart2;
+
+  showOnboarding;
+
+  constructor(public authService: AuthService) {
+    this.showOnboarding = this.authService.isNewUser;
+  }
 
   stats = [
     { label: 'TOTAL CONTRIBUTIONS', value: '1,284', delta: '+12%', deltaLabel: 'from last month', icon: Zap, positive: true },

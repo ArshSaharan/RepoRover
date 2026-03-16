@@ -1,1 +1,129 @@
-<p>join works!</p>
+<div class="login-page">
+  <!-- Fire glow bg -->
+  <div class="login-glow-bg"></div>
+
+  <!-- Top bar -->
+  <nav class="login-topbar">
+    <a routerLink="/" class="rr-logo">
+      <div class="rr-logo-icon">
+        <lucide-icon [img]="Zap" size="14" color="#000"></lucide-icon>
+      </div>
+      <span>Repo-Rover</span>
+    </a>
+    <div class="login-topbar-right">
+      <a href="#" class="login-docs-link">Forge Documentation</a>
+      <a href="#" class="btn-rr-orange" style="padding: 8px 18px; font-size: 0.82rem; border-radius: 6px;">Contact Support</a>
+    </div>
+  </nav>
+
+  <!-- Card -->
+  <div class="login-center">
+    <div class="login-card">
+
+      <!-- Error message -->
+      @if (errorMessage) {
+        <div class="login-error">
+          {{ errorMessage }}
+        </div>
+      }
+      
+      @if (!isEmailSignup) {
+        <div>
+        <!-- Icon -->
+        <div class="login-icon-wrap">
+          <lucide-icon [img]="Wrench" size="26" color="#f97316"></lucide-icon>
+        </div>
+
+        <h2 class="login-title">Join the Forge</h2>
+        <p class="login-subtitle">Start matching your skills with<br>open-source projects today.</p>
+
+        <!-- GitHub -->
+        <button class="btn-github w-100" (click)="signupWithGitHub()">
+          <lucide-icon [img]="Github" size="18"></lucide-icon>
+          Sign up with GitHub
+        </button>
+
+        <!-- Divider -->
+        <div class="login-divider">
+          <span>OR SIGN UP VIA</span>
+        </div>
+
+        <!-- Email & SSO -->
+        <div class="row g-2">
+          <div class="col-6">
+            <button class="btn-secondary-login w-100" (click)="toggleEmailSignup()">
+              <lucide-icon [img]="Mail" size="15"></lucide-icon>
+              Email
+            </button>
+          </div>
+          <div class="col-6">
+            <button class="btn-secondary-login w-100">
+              <lucide-icon [img]="KeyRound" size="15"></lucide-icon>
+              SSO
+            </button>
+          </div>
+        </div>
+
+        <!-- Terms -->
+        <p class="login-terms">
+          By clicking continue, you agree to our
+          <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
+        </p>
+
+        <p class="mt-4 text-sm text-secondary">
+            Already have an account? <a routerLink="/login" class="text-orange hover:underline">Log in</a>
+        </p>
+      </div>
+      }
+
+      @if (isEmailSignup) {
+        <div>
+        <div class="login-form-header">
+           <button class="btn-back" (click)="toggleEmailSignup()">
+             <lucide-icon [img]="ArrowLeft" size="20"></lucide-icon>
+           </button>
+           <h2 class="login-form-title">Create Account</h2>
+        </div>
+
+        <form (ngSubmit)="onSubmit()">
+          <div class="form-group">
+            <label class="form-label" for="email">Email Address</label>
+            <input type="email" id="email" [(ngModel)]="email" name="email" class="form-input" placeholder="name@example.com" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="password">Password</label>
+            <div class="input-wrapper">
+              <input [type]="showPassword ? 'text' : 'password'" id="password" [(ngModel)]="password" name="password" class="form-input" placeholder="Create a password" required>
+              <button type="button" class="password-toggle" (click)="togglePasswordVisibility()">
+                <lucide-icon [img]="showPassword ? EyeOff : Eye" size="16"></lucide-icon>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="confirmPassword">Confirm Password</label>
+            <div class="input-wrapper">
+              <input [type]="showPassword ? 'text' : 'password'" id="confirmPassword" [(ngModel)]="confirmPassword" name="confirmPassword" class="form-input" placeholder="Confirm your password" required>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-primary-action" [disabled]="isLoading">
+            {{ isLoading ? 'Creating Account...' : 'Create Account' }}
+          </button>
+        </form>
+      </div>
+      }
+
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="login-footer">
+    <a href="#" class="font-mono">[privacy_policy]</a>
+    <span>|</span>
+    <a href="#" class="font-mono">[terms_of_service]</a>
+    <span>|</span>
+    <a href="#" class="font-mono">[system_status]</a>
+  </div>
+</div>

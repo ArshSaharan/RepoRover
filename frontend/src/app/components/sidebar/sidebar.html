@@ -43,13 +43,17 @@
   <!-- User -->
   <div class="sidebar-user">
     <div class="sidebar-user-avatar">
-      <lucide-icon [img]="User" size="14" color="#f97316"></lucide-icon>
+      @if (userAvatar()) {
+        <img [src]="userAvatar()" alt="User Avatar" class="avatar-img" />
+      } @else {
+        <lucide-icon [img]="User" size="14" color="#f97316"></lucide-icon>
+      }
     </div>
     <div class="sidebar-user-info">
-      <div class="sidebar-user-name">Dev Alex</div>
-      <div class="sidebar-user-handle">&#64;dev_alex</div>
+      <div class="sidebar-user-name">{{ userName() }}</div>
+      <div class="sidebar-user-handle">{{ userHandle() }}</div>
     </div>
-    <button class="sidebar-logout">
+    <button class="sidebar-logout" (click)="logout()">
       <lucide-icon [img]="LogOut" size="13" color="#525252"></lucide-icon>
     </button>
   </div>

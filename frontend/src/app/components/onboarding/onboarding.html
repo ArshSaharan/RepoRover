@@ -1,0 +1,160 @@
+<div class="onboarding-overlay">
+  <div class="onboarding-modal">
+    <!-- Close hint -->
+    <div class="onboarding-badge">
+      <lucide-icon [img]="Zap" size="12" color="#f97316"></lucide-icon>
+      <span>Welcome to Repo-Rover</span>
+    </div>
+
+    <!-- Step indicators -->
+    <div class="step-indicators">
+      <div class="step-dot" [class.active]="step() >= 1" [class.done]="step() > 1"></div>
+      <div class="step-line" [class.active]="step() > 1"></div>
+      <div class="step-dot" [class.active]="step() >= 2" [class.done]="step() > 2"></div>
+    </div>
+
+    <!-- STEP 1: Display Name -->
+    @if (step() === 1) {
+    <div class="onboarding-step">
+      <div class="step-icon">
+        <lucide-icon [img]="User" size="24" color="#f97316"></lucide-icon>
+      </div>
+      <h2 class="onboarding-title">What should we call you?</h2>
+      <p class="onboarding-subtitle">Choose a display name for your Repo-Rover profile.</p>
+
+      <div class="onboarding-field">
+        <label for="displayName">Display Name</label>
+        <input
+          type="text"
+          id="displayName"
+          [(ngModel)]="displayName"
+          placeholder="e.g. Alex Developer"
+          class="onboarding-input"
+          autofocus
+        />
+      </div>
+
+      <button
+        class="btn-onboarding-primary"
+        [disabled]="!displayName.trim()"
+        (click)="goToStep(2)"
+      >
+        Continue
+        <lucide-icon [img]="ArrowRight" size="16"></lucide-icon>
+      </button>
+    </div>
+    }
+
+    <!-- STEP 2: GitHub -->
+    @if (step() === 2) {
+    <div class="onboarding-step">
+      <div class="step-icon">
+        <lucide-icon [img]="Github" size="24" color="#f97316"></lucide-icon>
+      </div>
+
+      <!-- GitHub user: show fetched stats -->
+      @if (isGitHubUser()) {
+      <ng-container>
+        <h2 class="onboarding-title">Your GitHub Profile</h2>
+        <p class="onboarding-subtitle">We've fetched your GitHub data to personalize your experience.</p>
+
+        @if (isLoadingGitHub()) {
+        <div class="github-loading">
+          <div class="spinner-sm"></div>
+          <span>Fetching your GitHub stats...</span>
+        </div>
+        }
+
+        @if (!isLoadingGitHub() && githubStats()) {
+        <div class="github-stats-grid">
+          <div class="gh-stat-card">
+            <lucide-icon [img]="FolderGit2" size="18" color="#f97316"></lucide-icon>
+            <div class="gh-stat-value">{{ githubStats()!.public_repos }}</div>
+            <div class="gh-stat-label">Repositories</div>
+          </div>
+          <div class="gh-stat-card">
+            <lucide-icon [img]="GitPullRequest" size="18" color="#22c55e"></lucide-icon>
+            <div class="gh-stat-value">{{ githubStats()!.total_prs }}</div>
+            <div class="gh-stat-label">Pull Requests</div>
+          </div>
+          <div class="gh-stat-card">
+            <lucide-icon [img]="AlertCircle" size="18" color="#eab308"></lucide-icon>
+            <div class="gh-stat-value">{{ githubStats()!.total_issues }}</div>
+            <div class="gh-stat-label">Issues</div>
+          </div>
+          <div class="gh-stat-card">
+            <lucide-icon [img]="Star" size="18" color="#a78bfa"></lucide-icon>
+            <div class="gh-stat-value">{{ githubStats()!.followers }}</div>
+            <div class="gh-stat-label">Followers</div>
+          </div>
+        </div>
+        }
+
+        <!-- Top repos -->
+        @if (!isLoadingGitHub() && githubStats()?.repos?.length) {
+        <div class="github-repos">
+          <div class="repos-header">Top Repositories</div>
+          <div class="repo-list">
+            @for (repo of githubStats()!.repos.slice(0, 4); track repo.name) {
+            <div class="gh-repo-item">
+              <div class="gh-repo-name">{{ repo.name }}</div>
+              <div class="gh-repo-meta">
+                @if (repo.language) {
+                <span class="gh-repo-lang">{{ repo.language }}</span>
+                }
+                <span class="gh-repo-stars">
+                  <lucide-icon [img]="Star" size="11"></lucide-icon>
+                  {{ repo.stars }}
+                </span>
+              </div>
+            </div>
+            }
+          </div>
+        </div>
+        }
+      </ng-container>
+      }
+
+      <!-- Email user: prompt to link GitHub -->
+      @if (!isGitHubUser()) {
+      <ng-container>
+        <h2 class="onboarding-title">Link Your GitHub</h2>
+        <p class="onboarding-subtitle">
+          Connect your GitHub account so we can match you with open-source projects
+          based on your skills and contributions.
+        </p>
+
+        <button class="btn-github-link" (click)="linkGitHub()">
+          <lucide-icon [img]="Github" size="18"></lucide-icon>
+          Connect GitHub Account
+        </button>
+
+        <p class="onboarding-skip-note">
+          You can also do this later from your profile settings.
+        </p>
+      </ng-container>
+      }
+
+      <!-- Finish button -->
+      <button
+        class="btn-onboarding-primary mt-auto"
+        [disabled]="isSaving()"
+        (click)="finish()"
+      >
+        @if (!isSaving()) {
+        <span>
+          <lucide-icon [img]="Check" size="16"></lucide-icon>
+          Get Started
+        </span>
+        }
+        @if (isSaving()) {
+        <span class="saving-text">
+          <div class="spinner-sm"></div>
+          Setting up...
+        </span>
+        }
+      </button>
+    </div>
+    }
+  </div>
+</div>

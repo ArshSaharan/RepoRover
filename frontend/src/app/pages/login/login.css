@@ -95,6 +95,18 @@
   margin-bottom: 28px;
 }
 
+/* Error message */
+.login-error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 20px;
+  font-size: 0.82rem;
+  color: #f87171;
+  text-align: left;
+}
+
 /* GitHub button */
 .btn-github {
   display: flex;
@@ -197,6 +209,137 @@
   transition: var(--rr-transition);
 }
 .login-footer a:hover { color: var(--rr-text-secondary); }
+
+/* Email Login Form */
+.login-form-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.btn-back {
+  background: none;
+  border: none;
+  color: var(--rr-text-secondary);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: var(--rr-transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  left: -8px;
+}
+
+.btn-back:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--rr-text-primary);
+}
+
+.login-form-title {
+  flex: 1;
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--rr-text-primary);
+}
+
+.form-group {
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--rr-text-secondary);
+  margin-bottom: 8px;
+}
+
+.input-wrapper {
+  position: relative;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--rr-border);
+  border-radius: 8px;
+  color: var(--rr-text-primary);
+  font-size: 0.95rem;
+  transition: var(--rr-transition);
+}
+
+.form-input:focus {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--rr-orange);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.1);
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--rr-text-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.password-toggle:hover {
+  color: var(--rr-text-secondary);
+}
+
+.btn-primary-action {
+  width: 100%;
+  padding: 14px;
+  background: var(--rr-orange);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--rr-transition);
+  margin-top: 8px;
+}
+
+.btn-primary-action:hover {
+  background: #ea580c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.25);
+}
+
+.btn-primary-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.forgot-password {
+  display: block;
+  text-align: center;
+  margin-top: 16px;
+  color: var(--rr-text-secondary);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.forgot-password:hover {
+  color: var(--rr-orange);
+  text-decoration: underline;
+}
 
 @media (max-width: 480px) {
   .login-card { padding: 28px 20px; }
