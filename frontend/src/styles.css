@@ -147,3 +147,53 @@ body {
     transition: none !important;
   }
 }
+
+/* === Neo-Brutalism Themes === */
+body.theme-cyber {
+  --rr-orange: #fde047;
+  --rr-orange-light: #fef08a;
+  --rr-orange-dim: rgba(253, 224, 71, 0.15);
+  --rr-orange-glow: rgba(253, 224, 71, 0.3);
+  --rr-text-orange: #fde047;
+}
+
+body.theme-matrix {
+  --rr-orange: #4ade80;
+  --rr-orange-light: #86efac;
+  --rr-orange-dim: rgba(74, 222, 128, 0.15);
+  --rr-orange-glow: rgba(74, 222, 128, 0.3);
+  --rr-text-orange: #4ade80;
+}
+
+body.theme-synthwave {
+  --rr-orange: #06b6d4;  /* Cyan */
+  --rr-orange-light: #22d3ee;
+  --rr-orange-dim: rgba(6, 182, 212, 0.15);
+  --rr-orange-glow: rgba(6, 182, 212, 0.3);
+  --rr-text-orange: #06b6d4;
+  --rr-bg-primary: #0f0c29;
+  --rr-bg-card: #1e1b4b;
+  --rr-bg-card-hover: #2e1065;
+  --rr-bg-secondary: #0f0c29;
+  --rr-sidebar-bg: #0f0c29;
+  --rr-border: rgba(236, 72, 153, 0.3);
+  --rr-text-primary: #f5f5f5;
+  --rr-text-secondary: #fbcfe8; /* Pink text secondary */
+}
+
+body.theme-arctic {
+  --rr-orange: #3b82f6;
+  --rr-orange-light: #60a5fa;
+  --rr-orange-dim: rgba(59, 130, 246, 0.15);
+  --rr-orange-glow: rgba(59, 130, 246, 0.3);
+  --rr-text-orange: #3b82f6;
+}
+
+body.theme-mono {
+  --rr-orange: #ffffff;
+  --rr-orange-light: #e5e5e5;
+  --rr-orange-dim: rgba(255, 255, 255, 0.15);
+  --rr-orange-glow: rgba(255, 255, 255, 0.3);
+  --rr-text-orange: #ffffff;
+}
+

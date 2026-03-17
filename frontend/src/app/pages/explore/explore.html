@@ -13,7 +13,7 @@
       <div class="explore-topbar-center">
         <div class="explore-search">
           <lucide-icon [img]="Search" size="13" color="#525252"></lucide-icon>
-          <input type="text" placeholder="Find repository protocols...">
+          <input type="text" [(ngModel)]="searchQuery" (keyup.enter)="loadRepos()" placeholder="Find repositories on GitHub...">
           <span class="dash-search-kbd">CTRL + R</span>
         </div>
         <div class="explore-status">
@@ -37,21 +37,30 @@
               <lucide-icon [img]="Zap" size="14" color="#f97316"></lucide-icon>
               Featured Forges
             </div>
-            <div class="explore-section-sub">Curated categories for high-impact contribution.</div>
+            <div class="explore-section-sub">Gemini profile analysis for {{ focusArea }}. Tags: {{ profileTags.slice(0, 4).join(', ') }}</div>
           </div>
         </div>
-        <div class="row g-3 mt-1">
-          @for (cat of forgeCategories; track cat.name) {
-            <div class="col-6 col-md-3">
-              <div class="forge-cat-card rr-card">
-                <div class="forge-cat-emoji">{{ cat.emoji }}</div>
-                <div class="forge-cat-name">{{ cat.name }}</div>
-                <div class="forge-cat-meta">{{ cat.meta }}</div>
-                <lucide-icon [img]="ChevronRight" size="14" color="#525252" class="forge-cat-arrow"></lucide-icon>
+        @if (!forgeCategories.length && !isLoading) {
+          <div class="rr-card p-4 mt-2">No live categories available yet.</div>
+        } @else {
+          <div class="row g-3 mt-1">
+            @for (cat of forgeCategories; track cat.name) {
+              <div class="col-6 col-md-3">
+                <div class="forge-cat-card rr-card">
+                  <div class="forge-cat-emoji">{{ cat.emoji }}</div>
+                  <div class="forge-cat-name">{{ cat.name }}</div>
+                  <div class="forge-cat-meta">{{ cat.meta }}</div>
+                  <div class="d-flex flex-wrap gap-1 mt-2">
+                    @for (tag of cat.tags; track tag) {
+                      <span class="rr-tag feat">{{ tag }}</span>
+                    }
+                  </div>
+                  <lucide-icon [img]="ChevronRight" size="14" color="#525252" class="forge-cat-arrow"></lucide-icon>
+                </div>
               </div>
-            </div>
-          }
-        </div>
+            }
+          </div>
+        }
       </div>
 
       <!-- Discovery Grid -->
@@ -76,47 +85,50 @@
           </div>
         </div>
 
-        <div class="row g-3 mt-1">
-          @for (repo of repos; track repo.name) {
-            <div class="col-12 col-sm-6 col-xl-3">
-              <div class="explore-repo-card rr-card h-100">
-                <!-- Match badge -->
-                <div class="explore-match-badge" [style.borderColor]="matchColor(repo.match)" [style.color]="matchColor(repo.match)">
-                  {{ repo.match }}%
-                </div>
-                <!-- Avatar row -->
-                <div class="explore-repo-top">
-                  <div class="explore-repo-avatar">{{ repo.name[0].toUpperCase() }}</div>
-                  <div class="explore-repo-info">
-                    <div class="explore-repo-name">{{ repo.name }}</div>
-                    <div class="d-flex flex-wrap gap-1 mt-1">
-                      @for (lang of repo.langs; track lang) {
-                        <span class="rr-tag" [class]="getLangClass(lang)">[{{ lang }}]</span>
-                      }
+        @if (isLoading) {
+          <div class="rr-card p-4 mt-3">Loading live repositories from backend...</div>
+        } @else if (loadError) {
+          <div class="rr-card p-4 mt-3">{{ loadError }}</div>
+        } @else if (!sortedRepos.length) {
+          <div class="rr-card p-4 mt-3">No repositories matched that query.</div>
+        } @else {
+          <div class="row g-3 mt-1">
+            @for (repo of sortedRepos; track repo.id) {
+              <div class="col-12 col-sm-6 col-xl-3">
+                <div class="explore-repo-card rr-card h-100">
+                  <div class="explore-match-badge" [style.borderColor]="matchColor(repo.match_probability)" [style.color]="matchColor(repo.match_probability)">
+                    {{ repo.match_probability }}%
+                  </div>
+                  <div class="explore-repo-top">
+                    <div class="explore-repo-avatar">{{ repo.name[0].toUpperCase() }}</div>
+                    <div class="explore-repo-info">
+                      <div class="explore-repo-name">{{ repo.full_name }}</div>
+                      <div class="d-flex flex-wrap gap-1 mt-1">
+                        <span class="rr-tag" [class]="getLangClass((repo.language || 'repo').toLowerCase())">[{{ repo.language || 'repo' }}]</span>
+                        <span class="rr-tag feat">[{{ repo.difficulty }}]</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <!-- Description -->
-                <p class="explore-repo-desc">{{ repo.desc }}</p>
-                <!-- Tags -->
-                <div class="d-flex flex-wrap gap-1 mb-3">
-                  <span class="explore-tags-label">TAGS:</span>
-                  @for (tag of repo.tags; track tag) {
-                    <span class="rr-tag" [class]="getTagClass(tag)">[{{ tag }}]</span>
-                  }
-                </div>
-                <!-- Footer -->
-                <div class="explore-repo-footer">
-                  <span class="explore-stars">
-                    <lucide-icon [img]="Star" size="11" color="#eab308"></lucide-icon>
-                    {{ repo.stars }}
-                  </span>
-                  <button class="btn-rr-primary explore-inspect-btn">INSPECT</button>
+                  <p class="explore-repo-desc">{{ repo.description || 'No repository description provided.' }}</p>
+                  <p class="explore-repo-desc" style="font-size: 0.78rem; opacity: 0.85; margin-top: -0.25rem;">{{ repo.reason }}</p>
+                  <div class="d-flex flex-wrap gap-1 mb-3">
+                    <span class="explore-tags-label">TAGS:</span>
+                    @for (tag of repo.tags; track tag) {
+                      <span class="rr-tag" [class]="getTagClass(tag)">[{{ tag }}]</span>
+                    }
+                  </div>
+                  <div class="explore-repo-footer">
+                    <span class="explore-stars">
+                      <lucide-icon [img]="Star" size="11" color="#eab308"></lucide-icon>
+                      {{ formatCompactNumber(repo.stars) }}
+                    </span>
+                    <a class="btn-rr-primary explore-inspect-btn" [href]="repo.html_url" target="_blank" rel="noreferrer">INSPECT</a>
+                  </div>
                 </div>
               </div>
-            </div>
-          }
-        </div>
+            }
+          </div>
+        }
       </div>
     </div>
   </div>
@@ -131,18 +143,27 @@
         <span class="panel-title">TRENDING REPOS</span>
       </div>
       <div class="trending-list">
-        @for (t of trending; track t.name) {
+        @if (!trending.length) {
           <div class="trending-item">
             <div class="trending-item-left">
-              <div class="trending-name">{{ t.name }}</div>
-              <div class="trending-meta">{{ t.meta }}</div>
-              <span class="trending-rank">{{ t.rank }}</span>
-            </div>
-            <div class="trending-item-right">
-              <div class="trending-sparkline"></div>
-              <span class="trending-delta" [class.up]="t.trend === 'up'">{{ t.delta }}</span>
+              <div class="trending-name">No trending repositories yet</div>
+              <div class="trending-meta">Run a backend search to populate this panel.</div>
             </div>
           </div>
+        } @else {
+          @for (t of trending; track t.full_name) {
+            <a class="trending-item text-reset text-decoration-none" [href]="t.html_url" target="_blank" rel="noreferrer">
+              <div class="trending-item-left">
+                <div class="trending-name">{{ t.full_name }}</div>
+                <div class="trending-meta">{{ formatCompactNumber(t.stars) }} stars · {{ t.language || 'OSS' }}</div>
+                <span class="trending-rank">{{ t.match_probability }}% match</span>
+              </div>
+              <div class="trending-item-right">
+                <div class="trending-sparkline"></div>
+                <span class="trending-delta up">gemini</span>
+              </div>
+            </a>
+          }
         }
       </div>
     </div>
@@ -154,8 +175,8 @@
         <span class="panel-title">FORGE STATUS</span>
       </div>
       <p class="forge-status-text">
-        Your profile skills match <span class="text-orange">94%</span> of current high-priority issues.
-        Consider focusing on the <span class="text-orange">Rust Forge</span> today.
+        Gemini match score is <span class="text-orange">{{ matchPercent }}%</span>.
+        Current focus area: <span class="text-orange">{{ focusArea }}</span>.
       </p>
     </div>
 

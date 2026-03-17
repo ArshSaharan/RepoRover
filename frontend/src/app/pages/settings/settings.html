@@ -1,12 +1,12 @@
-<div class="rr-layout pb-0">
+<div class="rr-layout">
   <app-sidebar></app-sidebar>
 
   <div class="rr-main">
     <!-- Top bar -->
-    <header class="dash-topbar brutal-topbar">
+    <header class="dash-topbar">
       <div class="dash-page-label">SETTINGS</div>
       <div class="dash-topbar-right">
-        <button class="dash-bell brutal-btn">
+        <button class="dash-bell">
           <lucide-icon [img]="Bell" size="16"></lucide-icon>
         </button>
       </div>
@@ -19,28 +19,34 @@
               <h2>Loading Profile...</h2>
           </div>
       } @else {
-      <div class="settings-page brutal-page">
-        <div class="settings-header">
-            <h1 class="settings-title brutal-title">Profile Settings</h1>
-            <p class="settings-subtitle">Manage your AI context profile.</p>
+      <div class="settings-page">
+        <div class="settings-header header-flex">
+            <div>
+              <h1 class="settings-title">Profile Settings</h1>
+              <p class="settings-subtitle">Manage your AI context profile.</p>
+            </div>
+            <button class="theme-btn" (click)="toggleThemePopup()">
+              <lucide-icon [img]="Palette" size="20"></lucide-icon>
+              <span>Change Theme</span>
+            </button>
         </div>
 
         <div class="settings-grid">
             <!-- GitHub Stats Card -->
             @if (githubStats()) {
-            <div class="settings-card github-stats-card brutal-card">
+            <div class="settings-card github-stats-card">
                 <div class="stat-profile-header">
-                    <img [src]="githubStats()?.avatar_url" alt="Avatar" class="stat-avatar brutal-avatar">
+                    <img [src]="githubStats()?.avatar_url" alt="Avatar" class="stat-avatar">
                     <div class="stat-info">
-                        <h2 class="brutal-heading">{{ displayName() }}</h2>
+                        <h2>{{ displayName() }}</h2>
                         <span class="stat-username">@{{ githubUsername() }} · he/him</span>
                     </div>
                 </div>
                 
                 <div class="stat-follow-info">
                     <lucide-icon [img]="UserIcon" size="16"></lucide-icon>
-                    <strong class="brutal-strong">{{ githubStats()?.followers }}</strong> <span class="text-muted">followers</span> · 
-                    <strong class="brutal-strong">{{ githubStats()?.following }}</strong> <span class="text-muted">following</span>
+                    <strong>{{ githubStats()?.followers }}</strong> <span>followers</span> · 
+                    <strong>{{ githubStats()?.following }}</strong> <span>following</span>
                 </div>
                 
                 <div class="stat-meta">
@@ -55,13 +61,13 @@
                 </div>
 
                 <div class="stat-achievements">
-                    <h3 class="brutal-heading">Achievements</h3>
+                    <h3>Achievements</h3>
                     <div class="achievements-list">
-                        <div class="achievement-badge brutal-badge pull-shark">
+                        <div class="achievement-badge pull-shark">
                             <img src="https://github.githubassets.com/assets/pull-shark-default-498c279a747d.png" alt="Shark" style="width: 100%; border-radius: 50%;">
-                            <span class="badge-count brutal-count">x2</span>
+                            <span class="badge-count">x2</span>
                         </div>
-                        <div class="achievement-badge brutal-badge yolo">
+                        <div class="achievement-badge yolo">
                             <img src="https://github.githubassets.com/assets/yolo-default-be03fd90fb20.png" alt="Yolo" style="width: 100%; border-radius: 50%;">
                         </div>
                     </div>
@@ -70,18 +76,20 @@
             }
 
             <!-- AI Profile Editor Section -->
-            <div class="settings-card llm-card brutal-card">
-                <div class="card-header brutal-header" style="justify-content: space-between;">
-                    <div class="d-flex align-items-center gap-2">
-                        <div class="card-icon llm-icon brutal-icon"><lucide-icon [img]="FileTextIcon" size="20"></lucide-icon></div>
-                        <h2 class="brutal-heading">AI Context Profile (Markdown)</h2>
+            <div class="settings-card">
+                <div class="card-header">
+                    <div class="card-header-flex">
+                        <div class="header-left">
+                            <div class="card-icon"><lucide-icon [img]="FileTextIcon" size="20"></lucide-icon></div>
+                            <h2 class="card-heading">AI Context Profile (Markdown)</h2>
+                        </div>
+                        <button class="btn-icon" (click)="togglePreview()" title="Toggle Preview">
+                            <lucide-icon [img]="isPreviewMode() ? Edit2 : Eye" size="18"></lucide-icon>
+                        </button>
                     </div>
-                    <button class="btn-icon brutal-btn" (click)="togglePreview()" title="Toggle Preview">
-                        <lucide-icon [img]="isPreviewMode() ? Edit2 : Eye" size="18"></lucide-icon>
-                    </button>
                 </div>
                 <div class="card-body">
-                    <p class="llm-desc brutal-desc">
+                    <p class="llm-desc">
                         This is the auto-generated markdown document summarizing your GitHub statistics.
                         The <strong>RAG AI Model</strong> reads this exact file to understand your tech stack and recommend
                         open-source repositories for you to contribute to.
@@ -89,22 +97,22 @@
                     </p>
 
                     @if (isPreviewMode()) {
-                    <div class="markdown-preview brutal-preview" [innerHTML]="parsedMarkdown">
+                    <div class="markdown-preview" [innerHTML]="parsedMarkdown">
                     </div>
                     } @else {
                     <div class="editor-container">
-                        <textarea [(ngModel)]="llmProfile" class="rr-input rr-monaco-textarea brutal-input" rows="15"
+                        <textarea [(ngModel)]="llmProfile" class="rr-input" rows="15"
                             spellcheck="false"></textarea>
                     </div>
                     }
 
-                    <div class="card-actions mt-4">
+                    <div class="card-actions">
                         @if (llmSaveSuccess()) {
                         <span class="success-msg">
                             <lucide-icon [img]="CheckIcon" size="14"></lucide-icon> Saved to backend
                         </span>
                         }
-                        <button class="btn-rr-secondary brutal-btn-orange" (click)="saveLlmProfile()"
+                        <button class="btn-rr-orange" (click)="saveLlmProfile()"
                             [disabled]="isLlmSaving()">
                             {{ isLlmSaving() ? 'Overwriting...' : 'Update AI Context' }}
                         </button>
@@ -113,6 +121,39 @@
             </div>
         </div>
       </div>
+      
+      <!-- Theme Selection Popup Overlay -->
+      @if (showThemePopup()) {
+        <div class="theme-overlay">
+          <div class="theme-popup">
+            <div class="theme-header">
+              <h2>Select A Theme</h2>
+              <button class="close-btn" (click)="toggleThemePopup()">
+                <lucide-icon [img]="X" size="24"></lucide-icon>
+              </button>
+            </div>
+            
+            <div class="theme-list">
+              @for (theme of themes; track theme.id) {
+                <button 
+                  class="theme-option" 
+                  [class.active]="currentTheme() === theme.id"
+                  (click)="setTheme(theme.id)"
+                >
+                  <div class="color-dot" [style.backgroundColor]="theme.color"></div>
+                  <span class="theme-name">{{ theme.name }}</span>
+                  @if (currentTheme() === theme.id) {
+                    <lucide-icon [img]="CheckIcon" size="18" class="check-icon"></lucide-icon>
+                  }
+                </button>
+              }
+            </div>
+            <div class="theme-footer">
+               <p>Your screen will refresh immediately to apply the new vibe.</p>
+            </div>
+          </div>
+        </div>
+      }
       }
     </div>
   </div>

@@ -64,3 +64,72 @@ class GitHubStats(BaseModel):
     total_prs: int = 0
     total_issues: int = 0
     repos: list[dict] = []
+
+
+class GitHubDiscoveryCategory(BaseModel):
+    name: str
+    language: str
+    meta: str
+
+
+class GitHubDiscoveryRepo(BaseModel):
+    id: int
+    name: str
+    full_name: str
+    owner: str
+    description: Optional[str] = None
+    language: Optional[str] = None
+    stars: int = 0
+    open_issues: int = 0
+    html_url: str
+    tags: list[str] = []
+    match_score: int = 0
+    difficulty: str = "Medium"
+
+
+class GitHubTrendingRepo(BaseModel):
+    name: str
+    full_name: str
+    language: Optional[str] = None
+    stars: int = 0
+    html_url: str
+    rank: str
+
+
+class GitHubDiscoveryResponse(BaseModel):
+    focus_area: str
+    match_percent: int
+    categories: list[GitHubDiscoveryCategory] = []
+    repos: list[GitHubDiscoveryRepo] = []
+    trending: list[GitHubTrendingRepo] = []
+
+
+class AiFeaturedSection(BaseModel):
+    name: str
+    summary: str
+    tags: list[str] = []
+    meta: str
+
+
+class AiRepoRecommendation(BaseModel):
+    id: int
+    name: str
+    full_name: str
+    owner: str
+    description: str
+    language: Optional[str] = None
+    stars: int = 0
+    open_issues: int = 0
+    html_url: str
+    match_probability: int
+    reason: str
+    tags: list[str] = []
+    difficulty: str = "Medium"
+
+
+class AiRecommendationsResponse(BaseModel):
+    focus_area: str
+    match_percent: int
+    profile_tags: list[str] = []
+    featured_sections: list[AiFeaturedSection] = []
+    recommendations: list[AiRepoRecommendation] = []

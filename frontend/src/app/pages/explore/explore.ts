@@ -1,14 +1,17 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { LucideAngularModule, Search, Bell, TrendingUp, Star, Zap, Filter, ChevronRight } from 'lucide-angular';
 import { Sidebar } from '../../components/sidebar/sidebar';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { AiFeaturedSection, AiRepoRecommendation, AiService } from '../../services/ai.service';
 
 @Component({
   selector: 'app-explore',
-  imports: [LucideAngularModule, Sidebar],
+  imports: [LucideAngularModule, Sidebar, CommonModule, FormsModule],
   templateUrl: './explore.html',
   styleUrl: './explore.css',
 })
-export class Explore {
+export class Explore implements OnInit {
   readonly Search = Search;
   readonly Bell = Bell;
   readonly TrendingUp = TrendingUp;
@@ -18,58 +21,62 @@ export class Explore {
   readonly ChevronRight = ChevronRight;
 
   sortMode: 'relevance' | 'difficulty' = 'relevance';
+  searchQuery = '';
+  focusArea = 'Open Source';
+  matchPercent = 0;
+  profileTags: string[] = [];
 
-  forgeCategories = [
-    { name: 'Machine Learning', emoji: '🤖', meta: '123 ACTIVE REPOS' },
-    { name: 'Rust Systems', emoji: '⚙️', meta: '45 CRITICAL ISSUES' },
-    { name: 'Frontend Tools', emoji: '🎨', meta: '842 OPEN REQUESTS' },
-    { name: 'Frameworks', emoji: '🚀', meta: 'NEW & TRENDING' },
-  ];
+  forgeCategories: Array<AiFeaturedSection & { emoji: string }> = [];
 
-  repos = [
-    {
-      name: 'react-hook-form',
-      langs: ['typescript', 'forms'],
-      match: 98,
-      desc: 'Performant, flexible and extensible forms with easy-to-use validation.',
-      tags: ['good-first-issue', 'help-wanted'],
-      stars: '34.2k',
-    },
-    {
-      name: 'tensorflow',
-      langs: ['python', 'ml'],
-      match: 89,
-      desc: 'An Open Source Machine Learning Framework for everyone.',
-      tags: ['bug', 'core'],
-      stars: '174k',
-    },
-    {
-      name: 'tauri',
-      langs: ['rust', 'desktop'],
-      match: 78,
-      desc: 'Build smaller, faster, and more secure desktop applications.',
-      tags: ['feature'],
-      stars: '69.5k',
-    },
-    {
-      name: 'astro',
-      langs: ['typescript', 'ssg'],
-      match: 82,
-      desc: 'The all-in-one web framework designed for speed.',
-      tags: ['good-first-issue'],
-      stars: '33.9k',
-    },
-  ];
+  repos: AiRepoRecommendation[] = [];
+  isLoading = false;
+  loadError = '';
 
-  trending = [
-    { name: 'shadcn/ui', delta: '+123%', meta: '3.2k stars/week', rank: '#1 Web', trend: 'up' },
-    { name: 'bun-js', delta: '+8%', meta: '1.8k stars/week', rank: '#2 Runtime', trend: 'up' },
-    { name: 'rust-lang', delta: '+6%', meta: 'Stable activity', rank: '#3 Sys', trend: 'stable' },
-  ];
+  private aiService = inject(AiService);
+
+  trending: AiRepoRecommendation[] = [];
+
+  async ngOnInit() {
+    await this.loadRepos();
+  }
+
+  async loadRepos() {
+    this.isLoading = true;
+    this.loadError = '';
+    try {
+      const response = await this.aiService.getRecommendations(this.searchQuery || undefined, 12);
+      this.focusArea = response.focus_area;
+      this.matchPercent = response.match_percent;
+      this.profileTags = response.profile_tags;
+      this.forgeCategories = response.featured_sections.map((section, index) => ({
+        ...section,
+        emoji: ['⚙️', '🚀', '🎨', '🧠'][index % 4],
+      }));
+      this.repos = response.recommendations;
+      this.trending = [...response.recommendations]
+        .sort((left, right) => right.match_probability - left.match_probability)
+        .slice(0, 3);
+    } catch (e: unknown) {
+      console.error(e);
+      this.loadError = 'Failed to load repositories from the backend.';
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  get sortedRepos(): AiRepoRecommendation[] {
+    const repos = [...this.repos];
+    if (this.sortMode === 'difficulty') {
+      const rank: Record<string, number> = { Easy: 1, Medium: 2, Hard: 3 };
+      return repos.sort((left, right) => (rank[left.difficulty] || 99) - (rank[right.difficulty] || 99));
+    }
+
+    return repos.sort((left, right) => (right.match_probability - left.match_probability) || (right.stars - left.stars));
+  }
 
   getLangClass(lang: string): string {
-    const map: Record<string, string> = { typescript: 'ts', python: 'py', rust: 'rs', ml: 'ml' };
-    return map[lang] || '';
+    const map: Record<string, string> = { typescript: 'ts', javascript: 'ts', python: 'py', rust: 'rs', go: 'gfi', java: 'bug' };
+    return map[lang] || 'ts';
   }
 
   getTagClass(tag: string): string {
@@ -77,6 +84,7 @@ export class Explore {
     if (tag === 'bug') return 'bug';
     if (tag === 'feature') return 'feat';
     if (tag === 'core') return 'ts';
+    if (tag === 'ai' || tag === 'open-source') return 'feat';
     return 'docs';
   }
 
@@ -84,5 +92,9 @@ export class Explore {
     if (match >= 95) return '#22c55e';
     if (match >= 85) return '#f97316';
     return '#eab308';
+  }
+
+  formatCompactNumber(value: number): string {
+    return new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
   }
 }

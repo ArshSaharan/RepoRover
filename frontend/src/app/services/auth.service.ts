@@ -57,6 +57,33 @@ export class AuthService {
     });
   }
 
+  private async waitForUser(timeoutMs = 5000): Promise<User | null> {
+    const existing = this.currentUser();
+    if (existing) {
+      return existing;
+    }
+
+    return new Promise((resolve) => {
+      let resolved = false;
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          resolve(this.auth.currentUser);
+        }
+      }, timeoutMs);
+
+      const unsubscribe = onAuthStateChanged(this.auth, (user) => {
+        if (resolved) {
+          return;
+        }
+        clearTimeout(timeout);
+        resolved = true;
+        unsubscribe();
+        resolve(user);
+      });
+    });
+  }
+
   // ─── Email / Password ───────────────────────────────────────
   async loginWithEmail(email: string, password: string): Promise<void> {
     try {
@@ -140,7 +167,7 @@ export class AuthService {
 
   // ─── GitHub Profile Data ────────────────────────────────────
   async fetchGitHubProfile(): Promise<GitHubStats | null> {
-    const user = this.currentUser();
+    const user = await this.waitForUser();
     if (!user) return null;
 
     const idToken = await getIdToken(user);
@@ -175,7 +202,7 @@ export class AuthService {
 
   // ─── LLM Profile Management ─────────────────────────────────
   async getLLMProfile(): Promise<string | null> {
-    const user = this.currentUser();
+    const user = await this.waitForUser();
     if (!user) return null;
 
     const idToken = await getIdToken(user);
@@ -189,7 +216,7 @@ export class AuthService {
   }
 
   async updateLLMProfile(content: string): Promise<boolean> {
-    const user = this.currentUser();
+    const user = await this.waitForUser();
     if (!user) return false;
 
     const idToken = await getIdToken(user);
@@ -215,7 +242,7 @@ export class AuthService {
 
   // ─── GitHub Stats ───────────────────────────────────────────
   async getGitHubProfile(): Promise<GitHubStats | null> {
-    const user = this.currentUser();
+    const user = await this.waitForUser();
     if (!user) return null;
 
     const idToken = await getIdToken(user);
@@ -229,7 +256,7 @@ export class AuthService {
 
   // ─── Token helpers ──────────────────────────────────────────
   async getIdToken(): Promise<string | null> {
-    const user = this.currentUser();
+    const user = await this.waitForUser();
     if (!user) return null;
     return getIdToken(user);
   }

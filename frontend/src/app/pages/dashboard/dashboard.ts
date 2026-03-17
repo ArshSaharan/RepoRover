@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import {
   LucideAngularModule, Search, Bell, TrendingUp, Zap, Star,
   Bookmark, ArrowUpRight, Activity, ExternalLink, GitMerge,
@@ -8,6 +8,28 @@ import { CommonModule } from '@angular/common';
 import { Sidebar } from '../../components/sidebar/sidebar';
 import { Onboarding } from '../../components/onboarding/onboarding';
 import { AuthService } from '../../services/auth.service';
+import { GitHubDataService } from '../../services/github-data.service';
+import { AiRepoRecommendation, AiService } from '../../services/ai.service';
+
+type DashboardRecommendation = {
+  name: string;
+  fullName: string;
+  language: string;
+  owner: string;
+  match: number;
+  desc: string;
+  reason: string;
+  tags: string[];
+  url: string;
+  saved: boolean;
+};
+
+type DashboardActivity = {
+  time: string;
+  title: string;
+  sub: string;
+  url: string;
+};
 
 @Component({
   selector: 'app-dashboard',
@@ -15,7 +37,7 @@ import { AuthService } from '../../services/auth.service';
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
 })
-export class Dashboard {
+export class Dashboard implements OnInit {
   readonly Search = Search;
   readonly Bell = Bell;
   readonly TrendingUp = TrendingUp;
@@ -30,34 +52,102 @@ export class Dashboard {
   readonly BarChart2 = BarChart2;
 
   showOnboarding;
+  isLoading = false;
+  loadError = '';
+  focusArea = 'Open Source';
+
+  private githubDataService = inject(GitHubDataService);
+  private aiService = inject(AiService);
 
   constructor(public authService: AuthService) {
     this.showOnboarding = this.authService.isNewUser;
   }
 
   stats = [
-    { label: 'TOTAL CONTRIBUTIONS', value: '1,284', delta: '+12%', deltaLabel: 'from last month', icon: Zap, positive: true },
-    { label: 'MATCH ACCURACY', value: '94.2%', delta: '+42.4%', deltaLabel: 'AI model improvement', icon: BarChart2, positive: true },
-    { label: 'OPEN ISSUES', value: '12', delta: null, deltaLabel: 'Across 3 active repositories', icon: AlertCircle, positive: null },
+    { label: 'PUBLIC REPOS', value: '0', delta: null, deltaLabel: 'Connected from GitHub', icon: Zap, positive: true },
+    { label: 'MATCH ACCURACY', value: '0%', delta: null, deltaLabel: 'Derived from your GitHub stack', icon: BarChart2, positive: true },
+    { label: 'OPEN ISSUES', value: '0', delta: null, deltaLabel: 'Across recommended repositories', icon: AlertCircle, positive: null },
   ];
 
-  recommendations = [
-    { name: 'react-hook-form', lang: 'ts', version: 'v7.45.0', match: 98, desc: 'Performant, flexible and extensible form...', saved: false },
-    { name: 'tensorflow', lang: 'py', version: 'v2.13.0', match: 92, desc: 'An Open Source Machine Learning...', saved: false },
-    { name: 'tauri', lang: 'rs', version: 'v1.4.0', match: 89, desc: 'Build smaller, faster, and more secure...', saved: false },
-    { name: 'astro', lang: 'ts', version: 'v2.10.1', match: 85, desc: 'The all-in-one web framework designed...', saved: false },
-  ];
+  recommendations: DashboardRecommendation[] = [];
+  attentionRepos: AiRepoRecommendation[] = [];
+  liveActivity: DashboardActivity[] = [];
 
-  urgentIssues = [
-    { title: 'Memory leak in useForm hook', repo: 'react-hook-form', tags: ['bug', 'perf'], difficulty: 'Hard' },
-    { title: 'Add window dragging example', repo: 'tauri', tags: ['docs', 'gfi'], difficulty: 'Easy' },
-  ];
+  async ngOnInit() {
+    await this.loadDashboard();
+  }
 
-  liveActivity = [
-    { time: '12h ago', html: '<strong>dev_alex</strong> merged PR <span class="text-orange">#402</span> in <strong>facebook/react</strong>', sub: '+142 -34 Lines changed' },
-    { time: '46m ago', html: 'New issue <span class="text-orange">bug: memory_leak</span> detected in <strong>vercel/next.js</strong> matching your skills.', sub: '<span class="text-orange c-pointer">View Details</span>' },
-    { time: '2h ago', html: '<strong>sarah_codes</strong> starred your tracked repo <strong>trpc/trpc</strong>', sub: '' },
-  ];
+  async loadDashboard() {
+    this.isLoading = true;
+    this.loadError = '';
+    try {
+      const [profile, aiResponse] = await Promise.all([
+        this.githubDataService.getGitHubProfile(),
+        this.aiService.getRecommendations(undefined, 12),
+      ]);
+
+      if (!profile) {
+        throw new Error('GitHub profile is not available');
+      }
+
+      this.focusArea = aiResponse.focus_area;
+      this.stats = [
+        {
+          label: 'PUBLIC REPOS',
+          value: this.formatCompactNumber(profile.public_repos),
+          delta: null,
+          deltaLabel: `${profile.followers} followers on GitHub`,
+          icon: Zap,
+          positive: true,
+        },
+        {
+          label: 'MATCH ACCURACY',
+          value: `${aiResponse.match_percent}%`,
+          delta: null,
+          deltaLabel: `Strongest fit: ${aiResponse.focus_area}`,
+          icon: BarChart2,
+          positive: true,
+        },
+        {
+          label: 'OPEN ISSUES',
+          value: this.formatCompactNumber(aiResponse.recommendations.reduce((sum, repo) => sum + repo.open_issues, 0)),
+          delta: null,
+          deltaLabel: `Across ${aiResponse.recommendations.length} Gemini-ranked repositories`,
+          icon: AlertCircle,
+          positive: null,
+        },
+      ];
+
+      this.recommendations = aiResponse.recommendations.slice(0, 4).map((repo) => ({
+        name: repo.name,
+        fullName: repo.full_name,
+        language: repo.language || 'repo',
+        owner: repo.owner,
+        match: repo.match_probability,
+        desc: repo.description || 'No repository description provided.',
+        reason: repo.reason,
+        tags: repo.tags,
+        url: repo.html_url,
+        saved: false
+      }));
+
+      this.attentionRepos = [...aiResponse.recommendations]
+        .sort((left, right) => right.open_issues - left.open_issues)
+        .slice(0, 5);
+
+      this.liveActivity = (profile.repos || []).slice(0, 3).map((repo) => ({
+        time: this.formatUpdatedAt(repo.updated_at),
+        title: repo.full_name || repo.name,
+        sub: `${repo.language || 'Unknown'} · ${this.formatCompactNumber(repo.stars || 0)} stars · ${repo.open_issues || 0} open issues`,
+        url: repo.url || '#',
+      }));
+    } catch (e: unknown) {
+      console.error(e);
+      this.loadError = 'Could not load dashboard data from the backend.';
+    } finally {
+      this.isLoading = false;
+    }
+  }
 
   toggleSave(i: number) {
     this.recommendations[i].saved = !this.recommendations[i].saved;
@@ -67,5 +157,27 @@ export class Dashboard {
     if (match >= 95) return '#22c55e';
     if (match >= 85) return '#f97316';
     return '#eab308';
+  }
+
+  formatCompactNumber(value: number): string {
+    return new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+  }
+
+  formatUpdatedAt(updatedAt?: string): string {
+    if (!updatedAt) {
+      return 'Recently';
+    }
+
+    const diffHours = Math.max(1, Math.round((Date.now() - new Date(updatedAt).getTime()) / 3600000));
+    if (diffHours < 24) {
+      return `${diffHours}h ago`;
+    }
+
+    const diffDays = Math.round(diffHours / 24);
+    if (diffDays < 7) {
+      return `${diffDays}d ago`;
+    }
+
+    return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(new Date(updatedAt));
   }
 }

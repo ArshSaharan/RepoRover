@@ -18,6 +18,12 @@ export class App implements OnInit, OnDestroy {
   ngOnInit(): void {
     if (!isPlatformBrowser(this.platformId)) return;
 
+    // Apply saved theme at app launch
+    const savedTheme = localStorage.getItem('rr-theme');
+    if (savedTheme && savedTheme !== 'theme-normal') {
+      document.body.classList.add(savedTheme);
+    }
+
     this.lenis = new Lenis({
       duration: 1.2,
       easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),

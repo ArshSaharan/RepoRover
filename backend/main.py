@@ -11,7 +11,7 @@ cred = credentials.Certificate(settings.FIREBASE_SERVICE_ACCOUNT_PATH)
 firebase_admin.initialize_app(cred)
 
 # ─── Import routers AFTER Firebase init ─────────────────────────
-from routers import auth, users, profiles  # noqa: E402
+from routers import auth, users, profiles, ai  # noqa: E402
 
 # ─── FastAPI App ─────────────────────────────────────────────────
 app = FastAPI(
@@ -37,6 +37,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(profiles.router)
+app.include_router(ai.router)
 
 
 @app.get("/")

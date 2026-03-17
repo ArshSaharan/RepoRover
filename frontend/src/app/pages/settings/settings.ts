@@ -1,7 +1,7 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LucideAngularModule, User, Github, FileText, Check, AlertCircle, Search, Bell, MapPin, Clock, Eye, Edit2, Key, Loader2 } from 'lucide-angular';
+import { LucideAngularModule, User, Github, FileText, Check, AlertCircle, Search, Bell, MapPin, Clock, Eye, Edit2, Key, Loader2, Palette, X } from 'lucide-angular';
 import { AuthService, GitHubStats } from '../../services/auth.service';
 import { Sidebar } from '../../components/sidebar/sidebar';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
@@ -27,6 +27,8 @@ export class Settings implements OnInit {
   readonly Eye = Eye;
   readonly Edit2 = Edit2;
   readonly Loader2 = Loader2;
+  readonly Palette = Palette;
+  readonly X = X;
 
   // Global Page Loading
   isPageLoading = signal<boolean>(true);
@@ -48,12 +50,53 @@ export class Settings implements OnInit {
   isLlmSaving = signal<boolean>(false);
   llmSaveSuccess = signal<boolean>(false);
 
+  // Theme State
+  showThemePopup = signal<boolean>(false);
+  themes = [
+    { id: 'theme-normal', name: 'Original Orange (Default)', color: '#f97316' },
+    { id: 'theme-cyber', name: 'Cyber-Yellow & True Black', color: '#eab308' },
+    { id: 'theme-matrix', name: 'Matrix Terminal', color: '#4ade80' },
+    { id: 'theme-synthwave', name: 'Synthwave / Cyberpunk', color: '#ec4899' },
+    { id: 'theme-arctic', name: 'Arctic / Electric Tech', color: '#3b82f6' },
+    { id: 'theme-mono', name: 'Pure Monochrome', color: '#ffffff' }
+  ];
+  currentTheme = signal<string>('theme-normal');
+
   constructor(private authService: AuthService, private sanitizer: DomSanitizer) { }
 
   ngOnInit() {
+    this.initTheme();
     this.initialLoad();
     this.updateTime();
     setInterval(() => this.updateTime(), 60000);
+  }
+
+  initTheme() {
+    const savedTheme = localStorage.getItem('rr-theme') || 'theme-normal';
+    this.currentTheme.set(savedTheme);
+  }
+
+  toggleThemePopup() {
+    this.showThemePopup.set(!this.showThemePopup());
+  }
+
+  setTheme(themeId: string, reload: boolean = true) {
+    this.currentTheme.set(themeId);
+    localStorage.setItem('rr-theme', themeId);
+    
+    // Remove all theme classes first
+    this.themes.forEach(t => document.body.classList.remove(t.id));
+    // Add the new theme class
+    if (themeId !== 'theme-normal') {
+      document.body.classList.add(themeId);
+    }
+    
+    if (reload) {
+      this.showThemePopup.set(false);
+      setTimeout(() => {
+        window.location.reload();
+      }, 150);
+    }
   }
   
   async initialLoad() {
@@ -95,7 +138,7 @@ export class Settings implements OnInit {
     this.isPreviewMode.set(!this.isPreviewMode());
   }
 
-  get parsedMarkdown(): SafeHtml {
+  get parsedMarkdown(): string {
     if (!this.llmProfile) return '';
     
     // Very basic markdown parser
@@ -122,7 +165,7 @@ export class Settings implements OnInit {
     html = html.replace(/<\/ul><br \/><ul>/g, '');
     html = html.replace(/<\/ul><ul>/g, '');
 
-    return this.sanitizer.bypassSecurityTrustHtml(html);
+    return html;
   }
 
   async saveLlmProfile() {

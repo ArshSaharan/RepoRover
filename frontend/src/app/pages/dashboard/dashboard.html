@@ -24,6 +24,14 @@
     </header>
 
     <div class="dash-body">
+      @if (isLoading) {
+        <div class="rr-card p-4 mb-4">Loading GitHub dashboard from backend...</div>
+      }
+
+      @if (loadError) {
+        <div class="rr-card p-4 mb-4">{{ loadError }}</div>
+      }
+
       <!-- Stat Cards -->
       <div class="row g-3 mb-4">
         @for (s of stats; track s.label) {
@@ -52,74 +60,84 @@
         <div class="dash-section-header">
           <div>
             <div class="dash-section-title">Recommended for You</div>
-            <div class="dash-section-sub">Based on your TypeScript and Rust activity.</div>
+            <div class="dash-section-sub">Based on your {{ focusArea }} activity from GitHub.</div>
           </div>
-          <a href="#" class="dash-view-all">
+          <a href="/explore" class="dash-view-all">
             VIEW ALL <lucide-icon [img]="ArrowUpRight" size="12"></lucide-icon>
           </a>
         </div>
-        <div class="row g-3">
-          @for (repo of recommendations; track repo.name; let i = $index) {
-            <div class="col-12 col-sm-6 col-xl-3">
-              <div class="repo-card rr-card h-100">
-                <div class="repo-card-top">
-                  <div class="repo-card-avatar">{{ repo.name[0].toUpperCase() }}</div>
-                  <div class="repo-info">
-                    <div class="repo-name">{{ repo.name }}</div>
-                    <span class="rr-tag" [class]="repo.lang">[{{ repo.lang }}]</span>
-                    <span class="repo-version">{{ repo.version }}</span>
+        @if (!isLoading && !recommendations.length) {
+          <div class="rr-card p-4 mt-3">No repository matches are available yet. Connect GitHub and refresh your profile.</div>
+        } @else {
+          <div class="row g-3">
+            @for (repo of recommendations; track repo.fullName; let i = $index) {
+              <div class="col-12 col-sm-6 col-xl-3">
+                <div class="repo-card rr-card h-100">
+                  <div class="repo-card-top">
+                    <div class="repo-card-avatar">{{ repo.name[0].toUpperCase() }}</div>
+                    <div class="repo-info">
+                      <div class="repo-name">{{ repo.name }}</div>
+                      <span class="rr-tag ts">[{{ repo.language.toLowerCase() }}]</span>
+                      <span class="repo-version">{{ repo.owner }}</span>
+                    </div>
+                    <button class="repo-save" (click)="toggleSave(i)">
+                      <lucide-icon [img]="Bookmark" size="14" [color]="repo.saved ? '#f97316' : '#525252'"></lucide-icon>
+                    </button>
                   </div>
-                  <button class="repo-save" (click)="toggleSave(i)">
-                    <lucide-icon [img]="Bookmark" size="14" [color]="repo.saved ? '#f97316' : '#525252'"></lucide-icon>
-                  </button>
-                </div>
-                <p class="repo-desc">{{ repo.desc }}</p>
-                <div class="repo-match-row">
-                  <div class="match-circle" [style.borderColor]="matchColor(repo.match)" [style.color]="matchColor(repo.match)">
-                    {{ repo.match }}%
+                  <p class="repo-desc">{{ repo.desc }}</p>
+                  <p class="repo-desc" style="font-size: 0.78rem; opacity: 0.85; margin-top: -0.25rem;">{{ repo.reason }}</p>
+                  <div class="d-flex flex-wrap gap-1 mb-3">
+                    @for (tag of repo.tags.slice(0, 3); track tag) {
+                      <span class="rr-tag feat">{{ tag }}</span>
+                    }
                   </div>
-                  <span class="repo-match-label">MATCH</span>
-                  <button class="btn-rr-orange repo-view-btn">View Issues</button>
+                  <div class="repo-match-row">
+                    <div class="match-circle" [style.borderColor]="matchColor(repo.match)" [style.color]="matchColor(repo.match)">
+                      {{ repo.match }}%
+                    </div>
+                    <span class="repo-match-label">MATCH</span>
+                    <a class="btn-rr-orange repo-view-btn" [href]="repo.url" target="_blank" rel="noreferrer">View Repo</a>
+                  </div>
                 </div>
               </div>
-            </div>
-          }
-        </div>
+            }
+          </div>
+        }
       </div>
 
-      <!-- Urgent Issues -->
+      <!-- Active Repositories -->
       <div class="dash-section">
-        <div class="dash-section-title">Urgent Issues in Matched Repos</div>
+        <div class="dash-section-title">Active Repositories From GitHub</div>
         <div class="rr-card mt-3 overflow-hidden">
           <table class="issues-table w-100">
             <thead>
               <tr>
-                <th>ISSUE</th>
-                <th>REPOSITORY</th>
+                <th>OWNER</th>
+                <th>LANGUAGE</th>
                 <th>TAGS</th>
-                <th>DIFFICULTY</th>
+                <th>OPEN ISSUES</th>
+                <th>REPOSITORY</th>
                 <th>ACTION</th>
               </tr>
             </thead>
             <tbody>
-              @for (issue of urgentIssues; track issue.title) {
+              @for (repo of attentionRepos; track repo.id) {
                 <tr>
-                  <td>{{ issue.title }}</td>
-                  <td class="text-orange font-mono" style="font-size:0.78rem">{{ issue.repo }}</td>
+                  <td>{{ repo.full_name }}</td>
+                  <td class="text-orange font-mono" style="font-size:0.78rem">{{ repo.language || 'Unknown' }}</td>
                   <td>
                     <div class="d-flex gap-1 flex-wrap">
-                      @for (tag of issue.tags; track tag) {
-                        <span class="rr-tag" [class]="tag === 'gfi' ? 'gfi' : tag === 'bug' ? 'bug' : tag === 'docs' ? 'docs' : 'perf'">{{ tag }}</span>
+                      @for (tag of repo.tags.slice(0, 2); track tag) {
+                        <span class="rr-tag" [class]="tag === 'bug' ? 'bug' : tag === 'docs' ? 'docs' : 'feat'">{{ tag }}</span>
                       }
                     </div>
                   </td>
+                  <td>{{ formatCompactNumber(repo.open_issues) }}</td>
+                  <td class="text-orange font-mono" style="font-size:0.78rem">{{ repo.owner }}</td>
                   <td>
-                    <span class="difficulty-badge" [class]="issue.difficulty.toLowerCase()">{{ issue.difficulty }}</span>
-                  </td>
-                  <td>
-                    <button class="issue-action-btn">
+                    <a class="issue-action-btn" [href]="repo.html_url" target="_blank" rel="noreferrer">
                       <lucide-icon [img]="ExternalLink" size="14"></lucide-icon>
-                    </button>
+                    </a>
                   </td>
                 </tr>
               }
@@ -139,14 +157,21 @@
         <span class="panel-title">LIVE ACTIVITY</span>
       </div>
       <div class="activity-feed">
-        @for (a of liveActivity; track a.time) {
+        @if (!liveActivity.length) {
           <div class="activity-item">
-            <div class="activity-time">{{ a.time }}</div>
-            <div class="activity-text" [innerHTML]="a.html"></div>
-            @if (a.sub) {
-              <div class="activity-sub" [innerHTML]="a.sub"></div>
-            }
+            <div class="activity-time">Now</div>
+            <div class="activity-text">No recent repository activity available.</div>
           </div>
+        } @else {
+          @for (a of liveActivity; track a.url) {
+            <a class="activity-item d-block text-reset text-decoration-none" [href]="a.url" target="_blank" rel="noreferrer">
+              <div class="activity-time">{{ a.time }}</div>
+              <div class="activity-text"><strong>{{ a.title }}</strong></div>
+              @if (a.sub) {
+                <div class="activity-sub">{{ a.sub }}</div>
+              }
+            </a>
+          }
         }
       </div>
     </div>
@@ -158,7 +183,7 @@
         <span class="panel-title">ROVER TIP</span>
       </div>
       <p class="rover-tip-text">
-        Repositories with <span class="text-orange">good first issue</span> tags have a 48% higher acceptance rate for new contributors.
+        Gemini is scoring repositories against your markdown profile. Current strongest fit: <span class="text-orange">{{ focusArea }}</span>.
       </p>
     </div>
   </aside>

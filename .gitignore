@@ -102,4 +102,13 @@ coverage/
 # Miscellaneous
 .npm/
 serviceAccountKey.json
+backend/serviceAccountKey.json
+backend/.python-version
+backend/.env
+frontend/.env
+frontend/.env.*
 backend/data/llm_profiles/
+
+# Ignore Angular environments to hide API keys
+frontend/src/environments/environment.ts
+frontend/src/environments/environment.development.ts

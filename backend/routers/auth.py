@@ -1,12 +1,23 @@
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, Query
 from fastapi.responses import RedirectResponse
 import httpx
 import os
 from firebase_admin import auth as firebase_auth, firestore
 from datetime import datetime, timezone
+from collections import Counter
 
 from config import settings
-from models import UserRegister, UserLogin, UserProfile, TokenResponse, GitHubStats
+from models import (
+    UserRegister,
+    UserLogin,
+    UserProfile,
+    TokenResponse,
+    GitHubStats,
+    GitHubDiscoveryResponse,
+    GitHubDiscoveryCategory,
+    GitHubDiscoveryRepo,
+    GitHubTrendingRepo,
+)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -72,11 +83,15 @@ async def _fetch_and_generate_github_profile(access_token: str, github_username:
         if repos_resp.status_code == 200:
             for r in repos_resp.json():
                 repos.append({
+                    "id": r.get("id"),
                     "name": r.get("name"),
                     "full_name": r.get("full_name"),
+                    "owner": (r.get("owner") or {}).get("login"),
                     "description": r.get("description"),
                     "language": r.get("language"),
                     "stars": r.get("stargazers_count", 0),
+                    "open_issues": r.get("open_issues_count", 0),
+                    "updated_at": r.get("updated_at"),
                     "url": r.get("html_url"),
                 })
 
@@ -140,6 +155,183 @@ async def _fetch_and_generate_github_profile(access_token: str, github_username:
         f.write(md_content)
         
     return stats
+
+
+def _github_headers(access_token: str) -> dict:
+    return {
+        "Authorization": f"Bearer {access_token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+
+def _load_github_auth(decoded: dict) -> tuple[dict, str, str]:
+    uid = decoded["uid"]
+    user_ref = db.collection("users").document(uid)
+    doc = user_ref.get()
+
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user_data = doc.to_dict()
+    access_token = user_data.get("github_access_token")
+    github_username = user_data.get("github_username")
+
+    if not access_token or not github_username:
+        raise HTTPException(status_code=400, detail="GitHub not linked")
+
+    return user_data, access_token, github_username
+
+
+def _normalize_repo(item: dict, preferred_languages: list[str]) -> GitHubDiscoveryRepo:
+    language = item.get("language")
+    tags = [tag for tag in item.get("topics", [])[:3] if isinstance(tag, str)]
+    if not tags:
+        if language:
+            tags.append(language.lower())
+        tags.append("open-source")
+
+    language_match = language.lower() in preferred_languages if language else False
+    match_score = 80
+    if language_match:
+        match_score += 12
+    if item.get("stargazers_count", 0) > 5000:
+        match_score += 4
+    if item.get("open_issues_count", 0) > 20:
+        match_score += 2
+    match_score = max(70, min(99, match_score))
+
+    open_issues = item.get("open_issues_count", 0)
+    if open_issues >= 200:
+        difficulty = "Hard"
+    elif open_issues >= 50:
+        difficulty = "Medium"
+    else:
+        difficulty = "Easy"
+
+    return GitHubDiscoveryRepo(
+        id=item.get("id", 0),
+        name=item.get("name", "unknown"),
+        full_name=item.get("full_name", "unknown/unknown"),
+        owner=(item.get("owner") or {}).get("login", "unknown"),
+        description=item.get("description"),
+        language=language,
+        stars=item.get("stargazers_count", 0),
+        open_issues=open_issues,
+        html_url=item.get("html_url", "#"),
+        tags=tags,
+        match_score=match_score,
+        difficulty=difficulty,
+    )
+
+
+async def _discover_github_repositories(
+    access_token: str,
+    github_username: str,
+    user_data: dict,
+    query: str | None,
+    per_page: int,
+) -> GitHubDiscoveryResponse:
+    headers = _github_headers(access_token)
+
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        repos_resp = await client.get(
+            "https://api.github.com/user/repos",
+            params={"sort": "updated", "per_page": 30, "type": "owner"},
+            headers=headers,
+        )
+        owned_repos = repos_resp.json() if repos_resp.status_code == 200 else []
+
+        language_scores: Counter[str] = Counter()
+        for repo in owned_repos:
+            language = repo.get("language")
+            if not language:
+                continue
+            language_scores[language.lower()] += max(1, repo.get("stargazers_count", 0) + 1)
+
+        preferred_languages = [language for language, _ in language_scores.most_common(3)]
+        if not preferred_languages:
+            preferred_languages = [
+                value.lower()
+                for value in (user_data.get("skills") or user_data.get("interests") or ["typescript", "python"])
+                if isinstance(value, str)
+            ][:3]
+
+        search_terms = [query.strip()] if query and query.strip() else preferred_languages[:3]
+        if not search_terms:
+            search_terms = ["typescript", "python"]
+
+        repo_map: dict[int, GitHubDiscoveryRepo] = {}
+        categories: list[GitHubDiscoveryCategory] = []
+
+        per_term = max(4, min(6, per_page))
+        for term in search_terms:
+            if query and query.strip():
+                github_query = f"{term} archived:false mirror:false"
+                category_name = term.title()
+                category_language = term
+            else:
+                github_query = f"language:{term} stars:>100 archived:false mirror:false"
+                category_name = f"{term.title()} Projects"
+                category_language = term
+
+            search_resp = await client.get(
+                "https://api.github.com/search/repositories",
+                params={
+                    "q": github_query,
+                    "sort": "stars",
+                    "order": "desc",
+                    "per_page": per_term,
+                },
+                headers=headers,
+            )
+            if search_resp.status_code != 200:
+                continue
+
+            search_payload = search_resp.json()
+            total_count = min(search_payload.get("total_count", 0), 9999)
+            categories.append(
+                GitHubDiscoveryCategory(
+                    name=category_name,
+                    language=category_language,
+                    meta=f"{total_count} MATCHING REPOS",
+                )
+            )
+
+            for item in search_payload.get("items", []):
+                if (item.get("owner") or {}).get("login", "").lower() == github_username.lower():
+                    continue
+                normalized = _normalize_repo(item, preferred_languages)
+                repo_map[normalized.id] = normalized
+
+        repos = sorted(
+            repo_map.values(),
+            key=lambda repo: (repo.match_score, repo.stars, repo.open_issues),
+            reverse=True,
+        )[:per_page]
+
+        trending = [
+            GitHubTrendingRepo(
+                name=repo.name,
+                full_name=repo.full_name,
+                language=repo.language,
+                stars=repo.stars,
+                html_url=repo.html_url,
+                rank=f"#{index} {repo.language or 'OSS'}",
+            )
+            for index, repo in enumerate(sorted(repos, key=lambda repo: repo.stars, reverse=True)[:3], start=1)
+        ]
+
+        focus_area = (search_terms[0] if search_terms else "open source").title()
+        match_percent = min(98, max(74, 76 + len(preferred_languages) * 6 + (4 if query else 10)))
+
+        return GitHubDiscoveryResponse(
+            focus_area=focus_area,
+            match_percent=match_percent,
+            categories=categories[:4],
+            repos=repos,
+            trending=trending,
+        )
 
 
 # ─── GitHub OAuth ────────────────────────────────────────────────
@@ -343,29 +535,28 @@ async def get_current_user(decoded: dict = Depends(verify_firebase_token)):
 @router.get("/github/profile", response_model=GitHubStats)
 async def get_github_profile(decoded: dict = Depends(verify_firebase_token)):
     """Fetch the authenticated user's GitHub stats (repos, PRs, issues)."""
-    uid = decoded["uid"]
-    user_ref = db.collection("users").document(uid)
-    doc = user_ref.get()
-
-    if not doc.exists:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    user_data = doc.to_dict()
-    access_token = user_data.get("github_access_token")
-    github_username = user_data.get("github_username")
-
-    if not access_token or not github_username:
-        raise HTTPException(status_code=400, detail="GitHub not linked")
+    _, access_token, github_username = _load_github_auth(decoded)
 
     # Fetch the exact same way
     async with httpx.AsyncClient() as client:
         user_resp = await client.get(
             "https://api.github.com/user",
-            headers={"Authorization": f"Bearer {access_token}"}
+            headers=_github_headers(access_token)
         )
         gh_user = user_resp.json() if user_resp.status_code == 200 else {}
         
     return await _fetch_and_generate_github_profile(access_token, github_username, gh_user)
+
+
+@router.get("/github/discover", response_model=GitHubDiscoveryResponse)
+async def discover_github_repositories(
+    q: str | None = Query(default=None, max_length=100),
+    per_page: int = Query(default=12, ge=4, le=24),
+    decoded: dict = Depends(verify_firebase_token),
+):
+    """Discover real GitHub repositories tailored to the authenticated user."""
+    user_data, access_token, github_username = _load_github_auth(decoded)
+    return await _discover_github_repositories(access_token, github_username, user_data, q, per_page)
 
 
 # ─── Link GitHub to existing account ────────────────────────────
