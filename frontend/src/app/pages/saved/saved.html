@@ -1,1 +1,103 @@
-<p>saved works!</p>
+<div class="rr-layout">
+	<app-sidebar></app-sidebar>
+
+	<div class="rr-main">
+		<header class="saved-topbar">
+			<div>
+				<div class="saved-title">Saved Repositories</div>
+				<div class="saved-sub">Your curated list from dashboard recommendations</div>
+			</div>
+
+			<div class="saved-topbar-actions">
+				<div class="saved-search">
+					<lucide-icon [img]="Search" size="14" color="#737373"></lucide-icon>
+					<input type="text" [(ngModel)]="searchQuery" placeholder="Search saved repositories..." />
+				</div>
+				<button class="saved-refresh-btn" type="button" (click)="loadSavedRepos()" [disabled]="isLoading">
+					<lucide-icon [img]="RefreshCw" size="14"></lucide-icon>
+					<span>Refresh</span>
+				</button>
+			</div>
+		</header>
+
+		<div class="saved-body">
+			@if (isLoading) {
+				<div class="rr-card p-4">Loading saved repositories...</div>
+			}
+
+			@if (loadError) {
+				<div class="rr-card p-4 saved-error">
+					<lucide-icon [img]="AlertCircle" size="16" color="#ef4444"></lucide-icon>
+					<span>{{ loadError }}</span>
+				</div>
+			}
+
+			<section class="saved-summary rr-card">
+				<div class="saved-summary-item">
+					<div class="saved-summary-label">TOTAL SAVED</div>
+					<div class="saved-summary-value">{{ formatCompactNumber(savedRepos.length) }}</div>
+				</div>
+				<div class="saved-summary-item">
+					<div class="saved-summary-label">VISIBLE</div>
+					<div class="saved-summary-value">{{ formatCompactNumber(filteredRepos.length) }}</div>
+				</div>
+			</section>
+
+			@if (!isLoading && !filteredRepos.length) {
+				<div class="rr-card saved-empty">
+					<div class="saved-empty-icon">
+						<lucide-icon [img]="FolderGit2" size="24" color="#f97316"></lucide-icon>
+					</div>
+					<div class="saved-empty-title">No saved repositories yet</div>
+					<div class="saved-empty-sub">Use the bookmark icon on Dashboard recommendations to add repositories here.</div>
+				</div>
+			} @else {
+				<div class="saved-grid">
+					@for (repo of filteredRepos; track repo.id) {
+						<article class="rr-card saved-card">
+							<div class="saved-card-top">
+								<div>
+									<div class="saved-repo-name">{{ repo.full_name }}</div>
+									<div class="saved-repo-meta">{{ formatSavedAt(repo.saved_at) }}</div>
+								</div>
+								<div class="saved-badge">
+									<lucide-icon [img]="Bookmark" size="12" color="#f97316"></lucide-icon>
+									SAVED
+								</div>
+							</div>
+
+							<p class="saved-repo-desc">{{ repo.description || 'No description provided.' }}</p>
+
+							<div class="saved-chip-row">
+								<span class="rr-tag ts">{{ repo.language || 'repo' }}</span>
+								<span class="rr-tag feat">{{ repo.difficulty || 'Medium' }}</span>
+								@for (tag of repo.tags.slice(0, 2); track tag) {
+									<span class="rr-tag docs">{{ tag }}</span>
+								}
+							</div>
+
+							<div class="saved-repo-stats">
+								<span>
+									<lucide-icon [img]="Star" size="12" color="#eab308"></lucide-icon>
+									{{ formatCompactNumber(repo.stars) }} stars
+								</span>
+								<span>{{ formatCompactNumber(repo.open_issues) }} open issues</span>
+							</div>
+
+							<div class="saved-card-actions">
+								<a class="btn-rr-primary" [href]="repo.html_url" target="_blank" rel="noreferrer">
+									<lucide-icon [img]="ExternalLink" size="14"></lucide-icon>
+									Open
+								</a>
+								<button class="saved-remove-btn" type="button" (click)="removeRepo(repo.id)">
+									<lucide-icon [img]="Trash2" size="13"></lucide-icon>
+									Remove
+								</button>
+							</div>
+						</article>
+					}
+				</div>
+			}
+		</div>
+	</div>
+</div>

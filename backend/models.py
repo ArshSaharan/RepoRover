@@ -104,6 +104,60 @@ class GitHubDiscoveryResponse(BaseModel):
     trending: list[GitHubTrendingRepo] = []
 
 
+class GitHubContributionDay(BaseModel):
+    date: str
+    count: int = 0
+    level: int = 0
+
+
+class GitHubContributionWeek(BaseModel):
+    first_day: str
+    days: list[GitHubContributionDay] = []
+
+
+class GitHubRecentContribution(BaseModel):
+    id: int
+    repo: str
+    title: str
+    status: str
+    url: str
+    occurred_at: str
+    additions: int = 0
+    deletions: int = 0
+
+
+class GitHubContributionsResponse(BaseModel):
+    username: str
+    name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    total_contributions: int = 0
+    last_weeks_total: int = 0
+    total_prs: int = 0
+    merged_prs: int = 0
+    lines_changed: int = 0
+    heatmap_weeks: list[GitHubContributionWeek] = []
+    recent: list[GitHubRecentContribution] = []
+
+
+class SavedRepo(BaseModel):
+    id: int
+    name: str
+    full_name: str
+    owner: str
+    description: Optional[str] = None
+    language: Optional[str] = None
+    stars: int = 0
+    open_issues: int = 0
+    html_url: str
+    tags: list[str] = []
+    difficulty: str = "Medium"
+    saved_at: Optional[str] = None
+
+
+class SavedReposResponse(BaseModel):
+    repos: list[SavedRepo] = []
+
+
 class AiFeaturedSection(BaseModel):
     name: str
     summary: str

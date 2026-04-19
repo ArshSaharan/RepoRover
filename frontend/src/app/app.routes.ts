@@ -29,6 +29,11 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'contributions',
+    loadComponent: () => import('./pages/contributions/contributions').then(m => m.Contributions),
+    canActivate: [authGuard],
+  },
+  {
     path: 'saved',
     loadComponent: () => import('./pages/saved/saved').then(m => m.Saved),
     canActivate: [authGuard],

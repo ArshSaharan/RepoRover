@@ -1,9 +1,12 @@
 from fastapi import APIRouter, HTTPException, Depends, Request, Query
 from fastapi.responses import RedirectResponse
+import asyncio
+import hashlib
 import httpx
+import json
 import os
 from firebase_admin import auth as firebase_auth, firestore
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from collections import Counter
 
 from config import settings
@@ -17,6 +20,10 @@ from models import (
     GitHubDiscoveryCategory,
     GitHubDiscoveryRepo,
     GitHubTrendingRepo,
+    GitHubContributionDay,
+    GitHubContributionWeek,
+    GitHubRecentContribution,
+    GitHubContributionsResponse,
 )
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -57,6 +64,7 @@ def _upsert_user_in_firestore(uid: str, data: dict) -> tuple[dict, bool]:
         data["updated_at"] = now
         data.setdefault("skills", [])
         data.setdefault("interests", [])
+        data.setdefault("saved_repos", [])
         data.setdefault("availability", None)
         data.setdefault("bio", None)
         # If it's a GitHub user, we forced is_new_user to False so onboarding is skipped
@@ -334,6 +342,291 @@ async def _discover_github_repositories(
         )
 
 
+def _github_graphql_headers(access_token: str) -> dict:
+    return {
+        "Authorization": f"Bearer {access_token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "Content-Type": "application/json",
+    }
+
+
+def _contribution_level_to_int(level: str) -> int:
+    mapping = {
+        "NONE": 0,
+        "FIRST_QUARTILE": 1,
+        "SECOND_QUARTILE": 2,
+        "THIRD_QUARTILE": 3,
+        "FOURTH_QUARTILE": 4,
+    }
+    return mapping.get(level.upper(), 0)
+
+
+def _repo_from_api_url(repository_url: str) -> str:
+    marker = "/repos/"
+    if marker not in repository_url:
+        return "unknown/unknown"
+    return repository_url.split(marker, 1)[1]
+
+
+async def _fetch_pull_request_detail(client: httpx.AsyncClient, headers: dict, url: str) -> dict:
+    response = await client.get(url, headers=headers)
+    if response.status_code != 200:
+        return {}
+
+    payload = response.json()
+    return payload if isinstance(payload, dict) else {}
+
+
+CONTRIB_CACHE_COLLECTION = "github_contributions_cache"
+CONTRIB_CACHE_REFRESH_SECONDS = 180
+
+
+def _contrib_cache_ref(uid: str, weeks: int, recent_limit: int):
+    return db.collection(CONTRIB_CACHE_COLLECTION).document(f"{uid}_w{weeks}_r{recent_limit}")
+
+
+def _parse_iso_datetime(value: str | None) -> datetime | None:
+    if not value or not isinstance(value, str):
+        return None
+
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+    except Exception:
+        return None
+
+
+def _contrib_payload_signature(payload: dict) -> str:
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _empty_heatmap_weeks(weeks: int, now: datetime) -> list[GitHubContributionWeek]:
+    empty_weeks: list[GitHubContributionWeek] = []
+    for week_idx in range(weeks):
+        week_start = (now - timedelta(days=(weeks - week_idx) * 7)).date()
+        days = [
+            GitHubContributionDay(
+                date=(week_start + timedelta(days=day_idx)).isoformat(),
+                count=0,
+                level=0,
+            )
+            for day_idx in range(7)
+        ]
+        empty_weeks.append(GitHubContributionWeek(first_day=week_start.isoformat(), days=days))
+
+    return empty_weeks
+
+
+async def _collect_github_contributions(
+    user_data: dict,
+    access_token: str,
+    github_username: str,
+    weeks: int,
+    recent_limit: int,
+) -> GitHubContributionsResponse:
+    now = datetime.now(timezone.utc)
+    from_date = now - timedelta(days=370)
+    rest_headers = _github_headers(access_token)
+
+    heatmap_weeks: list[GitHubContributionWeek] = []
+    total_contributions = 0
+    last_weeks_total = 0
+    total_prs = 0
+    merged_prs = 0
+    lines_changed = 0
+    recent: list[GitHubRecentContribution] = []
+
+    async with httpx.AsyncClient(timeout=25.0) as client:
+        graphql_response = await client.post(
+            "https://api.github.com/graphql",
+            json={
+                "query": """
+                query($login: String!, $from: DateTime!, $to: DateTime!) {
+                  user(login: $login) {
+                    contributionsCollection(from: $from, to: $to) {
+                      contributionCalendar {
+                        totalContributions
+                        weeks {
+                          firstDay
+                          contributionDays {
+                            date
+                            contributionCount
+                            contributionLevel
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                """,
+                "variables": {
+                    "login": github_username,
+                    "from": from_date.replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+                    "to": now.replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+                },
+            },
+            headers=_github_graphql_headers(access_token),
+        )
+
+        if graphql_response.status_code == 200:
+            graphql_payload = graphql_response.json()
+            calendar = (
+                ((graphql_payload.get("data") or {}).get("user") or {})
+                .get("contributionsCollection", {})
+                .get("contributionCalendar", {})
+            )
+            total_contributions = int(calendar.get("totalContributions", 0) or 0)
+
+            calendar_weeks = calendar.get("weeks", []) if isinstance(calendar.get("weeks", []), list) else []
+            selected_weeks = calendar_weeks[-weeks:]
+
+            for week in selected_weeks:
+                first_day = str(week.get("firstDay") or "")
+                days: list[GitHubContributionDay] = []
+                for day in week.get("contributionDays", []) or []:
+                    days.append(
+                        GitHubContributionDay(
+                            date=str(day.get("date") or ""),
+                            count=int(day.get("contributionCount", 0) or 0),
+                            level=_contribution_level_to_int(str(day.get("contributionLevel") or "NONE")),
+                        )
+                    )
+
+                last_weeks_total += sum(day.count for day in days)
+                heatmap_weeks.append(GitHubContributionWeek(first_day=first_day, days=days))
+
+        if not heatmap_weeks:
+            heatmap_weeks = _empty_heatmap_weeks(weeks, now)
+
+        total_prs_response = await client.get(
+            "https://api.github.com/search/issues",
+            params={"q": f"author:{github_username} type:pr"},
+            headers=rest_headers,
+        )
+        if total_prs_response.status_code == 200:
+            total_prs = int(total_prs_response.json().get("total_count", 0) or 0)
+
+        merged_prs_response = await client.get(
+            "https://api.github.com/search/issues",
+            params={"q": f"author:{github_username} type:pr is:merged"},
+            headers=rest_headers,
+        )
+        if merged_prs_response.status_code == 200:
+            merged_prs = int(merged_prs_response.json().get("total_count", 0) or 0)
+
+        sample_size = max(12, recent_limit * 3)
+        recent_response = await client.get(
+            "https://api.github.com/search/issues",
+            params={
+                "q": f"author:{github_username} type:pr",
+                "sort": "updated",
+                "order": "desc",
+                "per_page": sample_size,
+            },
+            headers=rest_headers,
+        )
+        recent_items = recent_response.json().get("items", []) if recent_response.status_code == 200 else []
+
+        source_items: list[dict] = []
+        detail_tasks: list = []
+        for item in recent_items:
+            pr_url = str((item.get("pull_request") or {}).get("url") or "")
+            if not pr_url:
+                continue
+            source_items.append(item)
+            detail_tasks.append(_fetch_pull_request_detail(client, rest_headers, pr_url))
+
+        details = await asyncio.gather(*detail_tasks) if detail_tasks else []
+
+        for detail in details:
+            if not detail:
+                continue
+            lines_changed += int(detail.get("additions", 0) or 0) + int(detail.get("deletions", 0) or 0)
+
+        for index, source in enumerate(source_items[:recent_limit]):
+            detail = details[index] if index < len(details) else {}
+            merged_at = detail.get("merged_at")
+            state = str(detail.get("state") or source.get("state") or "open").lower()
+            status = "MERGED" if merged_at else ("OPEN" if state == "open" else "CLOSED")
+            repository = (
+                ((detail.get("base") or {}).get("repo") or {}).get("full_name")
+                or _repo_from_api_url(str(source.get("repository_url") or ""))
+            )
+
+            recent.append(
+                GitHubRecentContribution(
+                    id=int(detail.get("id") or source.get("id") or index),
+                    repo=str(repository or "unknown/unknown"),
+                    title=str(detail.get("title") or source.get("title") or "Pull request"),
+                    status=status,
+                    url=str(detail.get("html_url") or source.get("html_url") or "#"),
+                    occurred_at=str(
+                        merged_at
+                        or detail.get("updated_at")
+                        or source.get("updated_at")
+                        or now.replace(microsecond=0).isoformat()
+                    ),
+                    additions=int(detail.get("additions", 0) or 0),
+                    deletions=int(detail.get("deletions", 0) or 0),
+                )
+            )
+
+    return GitHubContributionsResponse(
+        username=github_username,
+        name=user_data.get("display_name") or github_username,
+        avatar_url=user_data.get("avatar_url"),
+        total_contributions=total_contributions,
+        last_weeks_total=last_weeks_total,
+        total_prs=total_prs,
+        merged_prs=merged_prs,
+        lines_changed=lines_changed,
+        heatmap_weeks=heatmap_weeks,
+        recent=recent,
+    )
+
+
+async def _refresh_contribution_cache(
+    cache_ref,
+    user_data: dict,
+    access_token: str,
+    github_username: str,
+    weeks: int,
+    recent_limit: int,
+    previous_signature: str | None,
+):
+    checked_at = datetime.now(timezone.utc).isoformat()
+    try:
+        fresh = await _collect_github_contributions(user_data, access_token, github_username, weeks, recent_limit)
+        payload = fresh.model_dump(mode="json")
+        signature = _contrib_payload_signature(payload)
+
+        if signature != (previous_signature or ""):
+            cache_ref.set(
+                {
+                    "payload": payload,
+                    "signature": signature,
+                    "updated_at": checked_at,
+                    "last_checked_at": checked_at,
+                    "last_error": "",
+                },
+                merge=True,
+            )
+        else:
+            cache_ref.set({"last_checked_at": checked_at}, merge=True)
+    except Exception as error:
+        cache_ref.set(
+            {
+                "last_checked_at": checked_at,
+                "last_error": str(error)[:500],
+            },
+            merge=True,
+        )
+
+
 # ─── GitHub OAuth ────────────────────────────────────────────────
 @router.get("/github")
 async def github_login():
@@ -546,6 +839,72 @@ async def get_github_profile(decoded: dict = Depends(verify_firebase_token)):
         gh_user = user_resp.json() if user_resp.status_code == 200 else {}
         
     return await _fetch_and_generate_github_profile(access_token, github_username, gh_user)
+
+
+@router.get("/github/contributions", response_model=GitHubContributionsResponse)
+async def get_github_contributions(
+    weeks: int = Query(default=14, ge=8, le=26),
+    recent_limit: int = Query(default=4, ge=3, le=10),
+    force_refresh: bool = Query(default=False),
+    decoded: dict = Depends(verify_firebase_token),
+):
+    """Return cached contribution data immediately and refresh from GitHub in the background."""
+    user_data, access_token, github_username = _load_github_auth(decoded)
+    uid = decoded["uid"]
+    cache_ref = _contrib_cache_ref(uid, weeks, recent_limit)
+    now = datetime.now(timezone.utc)
+
+    if not force_refresh:
+        cache_doc = cache_ref.get()
+        if cache_doc.exists:
+            cache_data = cache_doc.to_dict() or {}
+            cached_payload = cache_data.get("payload")
+            previous_signature = str(cache_data.get("signature") or "")
+
+            if isinstance(cached_payload, dict):
+                try:
+                    cached_response = GitHubContributionsResponse(**cached_payload)
+                    last_checked = _parse_iso_datetime(cache_data.get("last_checked_at"))
+                    if not last_checked:
+                        last_checked = _parse_iso_datetime(cache_data.get("updated_at"))
+
+                    if (
+                        not last_checked
+                        or (now - last_checked).total_seconds() >= CONTRIB_CACHE_REFRESH_SECONDS
+                    ):
+                        asyncio.create_task(
+                            _refresh_contribution_cache(
+                                cache_ref,
+                                user_data,
+                                access_token,
+                                github_username,
+                                weeks,
+                                recent_limit,
+                                previous_signature,
+                            )
+                        )
+
+                    return cached_response
+                except Exception:
+                    pass
+
+    fresh_response = await _collect_github_contributions(user_data, access_token, github_username, weeks, recent_limit)
+    payload = fresh_response.model_dump(mode="json")
+    signature = _contrib_payload_signature(payload)
+    now_iso = now.isoformat()
+
+    cache_ref.set(
+        {
+            "payload": payload,
+            "signature": signature,
+            "updated_at": now_iso,
+            "last_checked_at": now_iso,
+            "last_error": "",
+        },
+        merge=True,
+    )
+
+    return fresh_response
 
 
 @router.get("/github/discover", response_model=GitHubDiscoveryResponse)

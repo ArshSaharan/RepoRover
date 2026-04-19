@@ -1,0 +1,156 @@
+<div class="rr-layout">
+  <app-sidebar></app-sidebar>
+
+  <div class="rr-main">
+    <header class="contrib-topbar">
+      <div class="contrib-title-wrap">
+        <div class="contrib-title-mark"></div>
+        <div>
+          <div class="contrib-page-title">My Contributions</div>
+          <div class="contrib-page-sub">GitHub activity snapshot</div>
+        </div>
+      </div>
+
+      <div class="contrib-topbar-actions">
+        <button class="contrib-icon-btn" type="button" (click)="loadContributions(true)" [disabled]="isLoading" aria-label="Refresh contributions">
+          <lucide-icon [img]="Search" size="16"></lucide-icon>
+        </button>
+        <div class="contrib-user-chip">
+          @if (avatarUrl) {
+            <img [src]="avatarUrl" alt="User avatar" class="contrib-user-avatar" />
+          } @else {
+            <span class="contrib-user-avatar fallback">
+              <lucide-icon [img]="User" size="14" color="#f97316"></lucide-icon>
+            </span>
+          }
+          <div>
+            <div class="contrib-user-name">{{ displayName }}</div>
+            <div class="contrib-user-handle">@{{ username }}</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="contrib-body">
+      @if (isLoading) {
+        <div class="rr-card p-4 mb-3">Loading your GitHub contribution feed...</div>
+      }
+
+      @if (loadError) {
+        <div class="rr-card p-4 mb-3">{{ loadError }}</div>
+      }
+
+      <section class="stats-grid">
+        <article class="rr-card stat-card stat-card-primary">
+          <div class="stat-label">TOTAL PRS</div>
+          <div class="stat-value">{{ formatCompactNumber(totalPrs) }}</div>
+          <div class="stat-sub">{{ formatCompactNumber(totalContributions) }} total contributions</div>
+          <div class="stat-icon-bg">
+            <lucide-icon [img]="GitPullRequest" size="78" color="rgba(0, 0, 0, 0.08)"></lucide-icon>
+          </div>
+        </article>
+
+        <article class="rr-card stat-card">
+          <div class="stat-header">
+            <span class="stat-label">MERGED</span>
+            <lucide-icon [img]="GitMerge" size="16" color="#f97316"></lucide-icon>
+          </div>
+          <div class="stat-value secondary">{{ formatCompactNumber(mergedPrs) }}</div>
+          <div class="stat-sub">{{ mergeRate }}</div>
+        </article>
+
+        <article class="rr-card stat-card">
+          <div class="stat-header">
+            <span class="stat-label">LINES</span>
+            <lucide-icon [img]="Activity" size="16" color="#22c55e"></lucide-icon>
+          </div>
+          <div class="stat-value secondary">{{ formatCompactNumber(linesChanged) }}</div>
+          <div class="stat-sub positive">{{ momentumLabel }}</div>
+        </article>
+      </section>
+
+      <section class="rr-card heatmap-card">
+        <div class="heatmap-header">
+          <div>
+            <div class="heatmap-title">ACTIVITY HEATMAP</div>
+            <div class="heatmap-sub">Last {{ weeks }} weeks · {{ formatCompactNumber(windowContributions) }} contributions</div>
+          </div>
+          <div class="heatmap-legend">
+            <span>Less</span>
+            <div class="legend-swatches">
+              <i class="heatmap-cell level-0"></i>
+              <i class="heatmap-cell level-1"></i>
+              <i class="heatmap-cell level-2"></i>
+              <i class="heatmap-cell level-3"></i>
+              <i class="heatmap-cell level-4"></i>
+            </div>
+            <span>More</span>
+          </div>
+        </div>
+
+        <div class="heatmap-months">
+          @for (month of monthMarkers; track $index) {
+            <span>{{ month }}</span>
+          }
+        </div>
+
+        <div class="heatmap-grid">
+          @for (week of heatmapWeeks; track week.first_day + '-' + $index) {
+            <div class="heatmap-week">
+              @for (day of week.days; track day.date + '-' + $index) {
+                <div class="heatmap-cell" [class]="heatmapClass(day.level)" [attr.title]="heatmapTitle(day)"></div>
+              }
+            </div>
+          }
+        </div>
+      </section>
+
+      <section class="recent-section">
+        <div class="recent-heading-row">
+          <h2 class="recent-title">Recent Contributions</h2>
+        </div>
+
+        @if (!recentContributions.length) {
+          <div class="rr-card p-4">No pull request activity found yet.</div>
+        } @else {
+          <div class="recent-list">
+            @for (item of recentContributions; track item.id) {
+              <a class="rr-card recent-item" [href]="item.url" target="_blank" rel="noreferrer">
+                <div class="recent-top">
+                  <div class="recent-repo">{{ item.repo }}</div>
+                  <span class="recent-status" [ngClass]="statusClass(item.status)">{{ item.status }}</span>
+                </div>
+                <div class="recent-title-line">{{ item.title }}</div>
+                <div class="recent-meta">
+                  <span>{{ formatRelativeTime(item.occurred_at) }}</span>
+                  <span class="recent-plus">+{{ formatCompactNumber(item.additions) }}</span>
+                  <span class="recent-minus">-{{ formatCompactNumber(item.deletions) }}</span>
+                  <lucide-icon [img]="ExternalLink" size="13" color="#737373"></lucide-icon>
+                </div>
+              </a>
+            }
+          </div>
+        }
+      </section>
+    </div>
+
+    <nav class="contrib-mobile-nav">
+      <a routerLink="/dashboard" routerLinkActive="active">
+        <lucide-icon [img]="LayoutDashboard" size="16"></lucide-icon>
+        <span>DASHBOARD</span>
+      </a>
+      <a routerLink="/explore" routerLinkActive="active">
+        <lucide-icon [img]="Compass" size="16"></lucide-icon>
+        <span>EXPLORE</span>
+      </a>
+      <a routerLink="/contributions" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+        <lucide-icon [img]="GitPullRequest" size="16"></lucide-icon>
+        <span>CONTRIBS</span>
+      </a>
+      <a routerLink="/saved" routerLinkActive="active">
+        <lucide-icon [img]="Bookmark" size="16"></lucide-icon>
+        <span>SAVED</span>
+      </a>
+    </nav>
+  </div>
+</div>

@@ -12,6 +12,7 @@ import { GitHubDataService } from '../../services/github-data.service';
 import { AiRepoRecommendation, AiService } from '../../services/ai.service';
 
 type DashboardRecommendation = {
+  id: number;
   name: string;
   fullName: string;
   language: string;
@@ -21,6 +22,9 @@ type DashboardRecommendation = {
   reason: string;
   tags: string[];
   url: string;
+  stars: number;
+  openIssues: number;
+  difficulty: string;
   saved: boolean;
 };
 
@@ -81,14 +85,17 @@ export class Dashboard implements OnInit {
     this.isLoading = true;
     this.loadError = '';
     try {
-      const [profile, aiResponse] = await Promise.all([
+      const [profile, aiResponse, savedRepos] = await Promise.all([
         this.githubDataService.getGitHubProfile(),
         this.aiService.getRecommendations(undefined, 12),
+        this.githubDataService.getSavedRepos(),
       ]);
 
       if (!profile) {
         throw new Error('GitHub profile is not available');
       }
+
+      const savedIds = new Set(savedRepos.map((repo) => repo.id));
 
       this.focusArea = aiResponse.focus_area;
       this.stats = [
@@ -119,6 +126,7 @@ export class Dashboard implements OnInit {
       ];
 
       this.recommendations = aiResponse.recommendations.slice(0, 4).map((repo) => ({
+        id: repo.id,
         name: repo.name,
         fullName: repo.full_name,
         language: repo.language || 'repo',
@@ -128,7 +136,10 @@ export class Dashboard implements OnInit {
         reason: repo.reason,
         tags: repo.tags,
         url: repo.html_url,
-        saved: false
+        stars: repo.stars,
+        openIssues: repo.open_issues,
+        difficulty: repo.difficulty,
+        saved: savedIds.has(repo.id),
       }));
 
       this.attentionRepos = [...aiResponse.recommendations]
@@ -149,8 +160,34 @@ export class Dashboard implements OnInit {
     }
   }
 
-  toggleSave(i: number) {
-    this.recommendations[i].saved = !this.recommendations[i].saved;
+  async toggleSave(i: number) {
+    const repo = this.recommendations[i];
+    const previousState = repo.saved;
+    repo.saved = !repo.saved;
+
+    try {
+      if (repo.saved) {
+        await this.githubDataService.saveRepo({
+          id: repo.id,
+          name: repo.name,
+          full_name: repo.fullName,
+          owner: repo.owner,
+          description: repo.desc,
+          language: repo.language === 'repo' ? null : repo.language,
+          stars: repo.stars,
+          open_issues: repo.openIssues,
+          html_url: repo.url,
+          tags: repo.tags,
+          difficulty: repo.difficulty,
+          saved_at: null,
+        });
+      } else {
+        await this.githubDataService.removeSavedRepo(repo.id);
+      }
+    } catch (error) {
+      console.error(error);
+      repo.saved = previousState;
+    }
   }
 
   matchColor(match: number): string {
