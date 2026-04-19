@@ -122,7 +122,7 @@
                       <lucide-icon [img]="Star" size="11" color="#eab308"></lucide-icon>
                       {{ formatCompactNumber(repo.stars) }}
                     </span>
-                    <a class="btn-rr-primary explore-inspect-btn" [href]="repo.html_url" target="_blank" rel="noreferrer">INSPECT</a>
+                    <button class="btn-rr-primary explore-inspect-btn" type="button" (click)="openContribution(repo.full_name)">INSPECT</button>
                   </div>
                 </div>
               </div>

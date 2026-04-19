@@ -34,6 +34,11 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'contribute/:owner/:repo',
+    loadComponent: () => import('./pages/contribute/contribute').then(m => m.Contribute),
+    canActivate: [authGuard],
+  },
+  {
     path: 'saved',
     loadComponent: () => import('./pages/saved/saved').then(m => m.Saved),
     canActivate: [authGuard],

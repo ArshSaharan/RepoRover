@@ -187,3 +187,39 @@ class AiRecommendationsResponse(BaseModel):
     profile_tags: list[str] = []
     featured_sections: list[AiFeaturedSection] = []
     recommendations: list[AiRepoRecommendation] = []
+
+
+class AiRepoIssueTarget(BaseModel):
+    number: int
+    title: str
+    url: str
+    state: str = "open"
+    labels: list[str] = []
+    difficulty: str = "Medium"
+    reason: str = ""
+    match_score: int = 0
+
+
+class AiRepoBriefResponse(BaseModel):
+    full_name: str
+    html_url: str
+    description: Optional[str] = None
+    language: Optional[str] = None
+    stars: int = 0
+    open_issues: int = 0
+    summary: str = ""
+    why_contribute: str = ""
+    contribution_value: list[str] = []
+    caution_notes: list[str] = []
+    profile_alignment: int = 0
+
+
+class AiRepoDeepDiveResponse(BaseModel):
+    full_name: str
+    html_url: str
+    default_branch: str = "main"
+    docs_summary: str = ""
+    quick_start: list[str] = []
+    architecture_notes: list[str] = []
+    tree_lines: list[str] = []
+    target_issues: list[AiRepoIssueTarget] = []

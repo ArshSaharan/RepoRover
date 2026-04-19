@@ -1,7 +1,11 @@
+import asyncio
+import base64
+import hashlib
 import json
 import os
 import re
 from collections import Counter
+from datetime import datetime, timezone
 
 import google.generativeai as genai
 import httpx
@@ -9,10 +13,22 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from firebase_admin import firestore
 
 from config import settings
-from models import AiFeaturedSection, AiRecommendationsResponse, AiRepoRecommendation
+from models import (
+    AiFeaturedSection,
+    AiRecommendationsResponse,
+    AiRepoRecommendation,
+    AiRepoBriefResponse,
+    AiRepoDeepDiveResponse,
+    AiRepoIssueTarget,
+)
 from routers.auth import _github_headers, _load_github_auth, verify_firebase_token
 
 router = APIRouter(prefix="/ai", tags=["AI"])
+db = firestore.client()
+
+AI_CACHE_COLLECTION = "ai_response_cache"
+AI_RECOMMENDATIONS_TTL_SECONDS = 5 * 60
+AI_REPO_INTEL_TTL_SECONDS = 10 * 60
 
 if settings.GEMINI_API_KEY:
     genai.configure(api_key=settings.GEMINI_API_KEY)
@@ -20,11 +36,32 @@ elif os.environ.get("GEMINI_API_KEY"):
     genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
 
+def _parse_iso_datetime(value: str | None) -> datetime | None:
+    if not value or not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+    except Exception:
+        return None
+
+
+def _payload_signature(payload: dict) -> str:
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _ai_cache_ref(uid: str, namespace: str, key: str):
+    key_hash = hashlib.sha256(f"{namespace}:{key}".encode("utf-8")).hexdigest()
+    return db.collection(AI_CACHE_COLLECTION).document(f"{uid}_{key_hash}")
+
+
 def _read_profile_markdown(github_username: str) -> str:
     md_path = f"data/llm_profiles/{github_username}.md"
     if not os.path.exists(md_path):
         raise HTTPException(status_code=404, detail="LLM profile not generated yet")
-
     with open(md_path, "r", encoding="utf-8") as file:
         return file.read()
 
@@ -36,8 +73,18 @@ def _extract_profile_languages(profile_markdown: str) -> list[str]:
         normalized = language.strip().lower()
         if normalized and normalized != "unknown":
             counts[normalized] += 1
-
     return [language for language, _ in counts.most_common(4)]
+
+
+def _strip_code_fence(text: str) -> str:
+    cleaned = text.strip()
+    if cleaned.startswith("```json"):
+        cleaned = cleaned[7:]
+    elif cleaned.startswith("```"):
+        cleaned = cleaned[3:]
+    if cleaned.endswith("```"):
+        cleaned = cleaned[:-3]
+    return cleaned.strip()
 
 
 def _candidate_query_terms(profile_markdown: str, user_data: dict, query: str | None) -> list[str]:
@@ -46,7 +93,6 @@ def _candidate_query_terms(profile_markdown: str, user_data: dict, query: str | 
 
     candidates: list[str] = []
     candidates.extend(_extract_profile_languages(profile_markdown))
-
     for field in ("skills", "interests"):
         for value in user_data.get(field, []) or []:
             if isinstance(value, str):
@@ -170,37 +216,16 @@ def _fallback_response(profile_markdown: str, candidates: list[dict], per_page: 
     )
 
 
-def _strip_code_fence(text: str) -> str:
-    cleaned = text.strip()
-    if cleaned.startswith("```json"):
-        cleaned = cleaned[7:]
-    elif cleaned.startswith("```"):
-        cleaned = cleaned[3:]
-
-    if cleaned.endswith("```"):
-        cleaned = cleaned[:-3]
-
-    return cleaned.strip()
-
-
-@router.get("/recommendations", response_model=AiRecommendationsResponse)
-async def get_ai_recommendations(
-    q: str | None = Query(default=None, max_length=100),
-    per_page: int = Query(default=12, ge=4, le=24),
-    decoded: dict = Depends(verify_firebase_token),
-):
-    db = firestore.client()
-    uid = decoded["uid"]
-    doc = db.collection("users").document(uid).get()
-    if not doc.exists:
-        raise HTTPException(status_code=404, detail="Profile not found")
-
-    user_data = doc.to_dict()
-    _, access_token, github_username = _load_github_auth(decoded)
+async def _build_ai_recommendations(
+    user_data: dict,
+    access_token: str,
+    github_username: str,
+    query: str | None,
+    per_page: int,
+) -> AiRecommendationsResponse:
     profile_markdown = _read_profile_markdown(github_username)
-    query_terms = _candidate_query_terms(profile_markdown, user_data, q)
+    query_terms = _candidate_query_terms(profile_markdown, user_data, query)
     candidates = await _fetch_candidate_repositories(access_token, github_username, query_terms, per_page)
-
     if not candidates:
         raise HTTPException(status_code=404, detail="No GitHub repositories found for analysis")
 
@@ -315,3 +340,595 @@ Candidate repositories:
         featured_sections=featured_sections or fallback.featured_sections,
         recommendations=recommendations[:per_page],
     )
+
+
+async def _refresh_recommendations_cache(
+    cache_ref,
+    user_data: dict,
+    access_token: str,
+    github_username: str,
+    query: str | None,
+    per_page: int,
+    previous_signature: str | None,
+):
+    checked_at = datetime.now(timezone.utc).isoformat()
+    try:
+        fresh = await _build_ai_recommendations(user_data, access_token, github_username, query, per_page)
+        payload = fresh.model_dump(mode="json")
+        signature = _payload_signature(payload)
+        if signature != (previous_signature or ""):
+            cache_ref.set(
+                {
+                    "payload": payload,
+                    "signature": signature,
+                    "updated_at": checked_at,
+                    "last_checked_at": checked_at,
+                    "last_error": "",
+                },
+                merge=True,
+            )
+        else:
+            cache_ref.set({"last_checked_at": checked_at}, merge=True)
+    except Exception as error:
+        cache_ref.set(
+            {
+                "last_checked_at": checked_at,
+                "last_error": str(error)[:500],
+            },
+            merge=True,
+        )
+
+
+def _decode_readme_content(payload: dict) -> str:
+    content = str(payload.get("content") or "")
+    encoding = str(payload.get("encoding") or "")
+    if not content:
+        return ""
+    if encoding.lower() == "base64":
+        try:
+            return base64.b64decode(content).decode("utf-8", errors="ignore")
+        except Exception:
+            return ""
+    return content
+
+
+def _format_tree_lines(tree_items: list[dict], max_depth: int = 4, max_items: int = 120) -> list[str]:
+    filtered = [item for item in tree_items if isinstance(item, dict) and item.get("path")]
+    filtered = [item for item in filtered if str(item.get("path")).count("/") <= max_depth]
+    filtered = sorted(filtered, key=lambda item: str(item.get("path")))[:max_items]
+
+    lines: list[str] = []
+    for item in filtered:
+        path = str(item.get("path"))
+        depth = path.count("/")
+        prefix = "  " * depth
+        icon = "[D]" if str(item.get("type")) == "tree" else "[F]"
+        lines.append(f"{prefix}{icon} {path}")
+    return lines
+
+
+def _issue_difficulty_from_labels(labels: list[str], comments: int) -> str:
+    lowered = [label.lower() for label in labels]
+    if any("good first issue" in label or "beginner" in label for label in lowered):
+        return "Easy"
+    if any("documentation" in label or "docs" in label for label in lowered):
+        return "Easy"
+    if comments >= 8 or any("refactor" in label or "breaking" in label for label in lowered):
+        return "Hard"
+    return "Medium"
+
+
+async def _fetch_repo_context(access_token: str, full_name: str, include_deep: bool) -> dict:
+    headers = _github_headers(access_token)
+    async with httpx.AsyncClient(timeout=25.0) as client:
+        repo_response = await client.get(f"https://api.github.com/repos/{full_name}", headers=headers)
+        if repo_response.status_code != 200:
+            raise HTTPException(status_code=404, detail="Repository not found on GitHub")
+
+        repo = repo_response.json()
+        default_branch = str(repo.get("default_branch") or "main")
+
+        readme_response = await client.get(f"https://api.github.com/repos/{full_name}/readme", headers=headers)
+        readme_text = _decode_readme_content(readme_response.json()) if readme_response.status_code == 200 else ""
+
+        tree_lines: list[str] = []
+        issues: list[dict] = []
+
+        if include_deep:
+            tree_response = await client.get(
+                f"https://api.github.com/repos/{full_name}/git/trees/{default_branch}",
+                params={"recursive": 1},
+                headers=headers,
+            )
+            if tree_response.status_code == 200:
+                tree_payload = tree_response.json()
+                tree_lines = _format_tree_lines(tree_payload.get("tree", []) if isinstance(tree_payload, dict) else [])
+
+            issues_response = await client.get(
+                f"https://api.github.com/repos/{full_name}/issues",
+                params={"state": "open", "sort": "updated", "direction": "desc", "per_page": 30},
+                headers=headers,
+            )
+            if issues_response.status_code == 200:
+                for item in issues_response.json():
+                    if item.get("pull_request"):
+                        continue
+                    labels = [str(label.get("name", "")).strip() for label in item.get("labels", []) if str(label.get("name", "")).strip()]
+                    issues.append(
+                        {
+                            "number": int(item.get("number", 0) or 0),
+                            "title": str(item.get("title") or "Issue"),
+                            "url": str(item.get("html_url") or "#"),
+                            "state": str(item.get("state") or "open"),
+                            "labels": labels,
+                            "comments": int(item.get("comments", 0) or 0),
+                            "difficulty": _issue_difficulty_from_labels(labels, int(item.get("comments", 0) or 0)),
+                        }
+                    )
+
+    return {
+        "repo": repo,
+        "readme_text": readme_text,
+        "tree_lines": tree_lines,
+        "issues": issues,
+    }
+
+
+def _fallback_repo_brief(full_name: str, context: dict, profile_markdown: str) -> AiRepoBriefResponse:
+    repo = context["repo"]
+    language = str(repo.get("language") or "")
+    lower_profile = profile_markdown.lower()
+    alignment = 88 if language and language.lower() in lower_profile else 75
+
+    return AiRepoBriefResponse(
+        full_name=full_name,
+        html_url=str(repo.get("html_url") or "#"),
+        description=repo.get("description"),
+        language=repo.get("language"),
+        stars=int(repo.get("stargazers_count", 0) or 0),
+        open_issues=int(repo.get("open_issues_count", 0) or 0),
+        summary=(
+            str(repo.get("description") or "Open-source project")
+            + ". Maintained repository with active issues and contribution opportunities."
+        ),
+        why_contribute="This project aligns with your profile technologies and offers practical open issues to build real impact.",
+        contribution_value=[
+            "Gain hands-on experience with a production codebase.",
+            "Build public contribution history in your main stack.",
+            "Collaborate through issue discussions and PR review cycles.",
+        ],
+        caution_notes=[
+            "Read contribution guidelines and setup steps before coding.",
+            "Start with scoped issues to ship a fast first PR.",
+        ],
+        profile_alignment=alignment,
+    )
+
+
+def _fallback_repo_deep(full_name: str, context: dict) -> AiRepoDeepDiveResponse:
+    repo = context["repo"]
+    issues = context["issues"]
+    targets = [
+        AiRepoIssueTarget(
+            number=issue["number"],
+            title=issue["title"],
+            url=issue["url"],
+            state=issue["state"],
+            labels=issue["labels"],
+            difficulty=issue["difficulty"],
+            reason="Good entry point based on issue activity and labels.",
+            match_score=max(70, 88 - idx * 4),
+        )
+        for idx, issue in enumerate(issues[:5])
+        if issue.get("number")
+    ]
+
+    return AiRepoDeepDiveResponse(
+        full_name=full_name,
+        html_url=str(repo.get("html_url") or "#"),
+        default_branch=str(repo.get("default_branch") or "main"),
+        docs_summary="Start with the README and contribution docs, then run local setup and tests before choosing an issue.",
+        quick_start=[
+            "Fork and clone the repository.",
+            "Run install and test commands from README.",
+            "Pick one open issue with clear acceptance criteria.",
+        ],
+        architecture_notes=[
+            "Use the file tree to locate core modules and entry points.",
+            "Review existing tests around the target area before changing code.",
+        ],
+        tree_lines=context["tree_lines"][:120],
+        target_issues=targets,
+    )
+
+
+async def _build_repo_brief(
+    full_name: str,
+    access_token: str,
+    profile_markdown: str,
+) -> AiRepoBriefResponse:
+    context = await _fetch_repo_context(access_token, full_name, include_deep=False)
+    repo = context["repo"]
+
+    if not settings.GEMINI_API_KEY and not os.environ.get("GEMINI_API_KEY"):
+        return _fallback_repo_brief(full_name, context, profile_markdown)
+
+    prompt = f"""
+You are an open-source mentor. Analyze this repository for a developer profile.
+
+Return ONLY valid JSON with this exact shape:
+{{
+  "summary": "2-3 sentence project summary",
+  "why_contribute": "why this repository is a good contribution target",
+  "contribution_value": ["benefit", "benefit", "benefit"],
+  "caution_notes": ["note", "note"],
+  "profile_alignment": 0
+}}
+
+Rules:
+- profile_alignment must be integer between 1 and 99.
+- Keep contribution_value to max 4 bullets.
+- Keep caution_notes to max 3 bullets.
+
+Developer profile markdown:
+{profile_markdown[:7000]}
+
+Repository:
+- Full name: {full_name}
+- Description: {repo.get('description')}
+- Language: {repo.get('language')}
+- Stars: {repo.get('stargazers_count')}
+- Open issues: {repo.get('open_issues_count')}
+
+README excerpt:
+{context['readme_text'][:6000]}
+"""
+
+    try:
+        model = genai.GenerativeModel("gemini-1.5-pro")
+        parsed = json.loads(_strip_code_fence(model.generate_content(prompt).text))
+        alignment = max(1, min(99, int(parsed.get("profile_alignment", 80))))
+        return AiRepoBriefResponse(
+            full_name=full_name,
+            html_url=str(repo.get("html_url") or "#"),
+            description=repo.get("description"),
+            language=repo.get("language"),
+            stars=int(repo.get("stargazers_count", 0) or 0),
+            open_issues=int(repo.get("open_issues_count", 0) or 0),
+            summary=str(parsed.get("summary", "")).strip(),
+            why_contribute=str(parsed.get("why_contribute", "")).strip(),
+            contribution_value=[str(item).strip() for item in parsed.get("contribution_value", [])[:4] if str(item).strip()],
+            caution_notes=[str(item).strip() for item in parsed.get("caution_notes", [])[:3] if str(item).strip()],
+            profile_alignment=alignment,
+        )
+    except Exception:
+        return _fallback_repo_brief(full_name, context, profile_markdown)
+
+
+async def _build_repo_deep(
+    full_name: str,
+    access_token: str,
+    profile_markdown: str,
+) -> AiRepoDeepDiveResponse:
+    context = await _fetch_repo_context(access_token, full_name, include_deep=True)
+    repo = context["repo"]
+    issues = context["issues"]
+
+    if not settings.GEMINI_API_KEY and not os.environ.get("GEMINI_API_KEY"):
+        return _fallback_repo_deep(full_name, context)
+
+    issue_payload = json.dumps(issues[:20], ensure_ascii=True)
+    tree_snippet = "\n".join(context["tree_lines"][:120])
+    prompt = f"""
+You are a senior maintainer helping a developer contribute to a repository.
+
+Return ONLY valid JSON with this shape:
+{{
+  "docs_summary": "short explanation of how to approach this repo",
+  "quick_start": ["step", "step", "step"],
+  "architecture_notes": ["note", "note", "note"],
+  "target_issues": [
+    {{ "number": 0, "reason": "why this issue matches profile", "match_score": 0, "difficulty": "Easy|Medium|Hard" }}
+  ]
+}}
+
+Rules:
+- target_issues numbers must exist in provided issue list.
+- match_score is integer 1..99.
+- quick_start max 5 items.
+- architecture_notes max 5 items.
+- target_issues max 6 items.
+
+Developer profile markdown:
+{profile_markdown[:7000]}
+
+Repository: {full_name}
+README excerpt:
+{context['readme_text'][:7000]}
+
+File tree excerpt:
+{tree_snippet}
+
+Open issues:
+{issue_payload}
+"""
+
+    try:
+        model = genai.GenerativeModel("gemini-1.5-pro")
+        parsed = json.loads(_strip_code_fence(model.generate_content(prompt).text))
+
+        issue_map = {int(issue["number"]): issue for issue in issues if issue.get("number")}
+        targets: list[AiRepoIssueTarget] = []
+        for item in parsed.get("target_issues", [])[:6]:
+            number = int(item.get("number", 0) or 0)
+            base_issue = issue_map.get(number)
+            if not base_issue:
+                continue
+
+            score = max(1, min(99, int(item.get("match_score", 75))))
+            targets.append(
+                AiRepoIssueTarget(
+                    number=number,
+                    title=str(base_issue.get("title") or "Issue"),
+                    url=str(base_issue.get("url") or "#"),
+                    state=str(base_issue.get("state") or "open"),
+                    labels=[str(label) for label in base_issue.get("labels", [])[:6]],
+                    difficulty=str(item.get("difficulty", base_issue.get("difficulty", "Medium"))).title(),
+                    reason=str(item.get("reason", "Good match for your profile.")).strip(),
+                    match_score=score,
+                )
+            )
+
+        if not targets and issues:
+            return _fallback_repo_deep(full_name, context)
+
+        return AiRepoDeepDiveResponse(
+            full_name=full_name,
+            html_url=str(repo.get("html_url") or "#"),
+            default_branch=str(repo.get("default_branch") or "main"),
+            docs_summary=str(parsed.get("docs_summary", "")).strip(),
+            quick_start=[str(item).strip() for item in parsed.get("quick_start", [])[:5] if str(item).strip()],
+            architecture_notes=[str(item).strip() for item in parsed.get("architecture_notes", [])[:5] if str(item).strip()],
+            tree_lines=context["tree_lines"][:120],
+            target_issues=targets,
+        )
+    except Exception:
+        return _fallback_repo_deep(full_name, context)
+
+
+async def _refresh_repo_brief_cache(
+    cache_ref,
+    full_name: str,
+    access_token: str,
+    profile_markdown: str,
+    previous_signature: str | None,
+):
+    checked_at = datetime.now(timezone.utc).isoformat()
+    try:
+        fresh = await _build_repo_brief(full_name, access_token, profile_markdown)
+        payload = fresh.model_dump(mode="json")
+        signature = _payload_signature(payload)
+        if signature != (previous_signature or ""):
+            cache_ref.set(
+                {
+                    "payload": payload,
+                    "signature": signature,
+                    "updated_at": checked_at,
+                    "last_checked_at": checked_at,
+                    "last_error": "",
+                },
+                merge=True,
+            )
+        else:
+            cache_ref.set({"last_checked_at": checked_at}, merge=True)
+    except Exception as error:
+        cache_ref.set({"last_checked_at": checked_at, "last_error": str(error)[:500]}, merge=True)
+
+
+async def _refresh_repo_deep_cache(
+    cache_ref,
+    full_name: str,
+    access_token: str,
+    profile_markdown: str,
+    previous_signature: str | None,
+):
+    checked_at = datetime.now(timezone.utc).isoformat()
+    try:
+        fresh = await _build_repo_deep(full_name, access_token, profile_markdown)
+        payload = fresh.model_dump(mode="json")
+        signature = _payload_signature(payload)
+        if signature != (previous_signature or ""):
+            cache_ref.set(
+                {
+                    "payload": payload,
+                    "signature": signature,
+                    "updated_at": checked_at,
+                    "last_checked_at": checked_at,
+                    "last_error": "",
+                },
+                merge=True,
+            )
+        else:
+            cache_ref.set({"last_checked_at": checked_at}, merge=True)
+    except Exception as error:
+        cache_ref.set({"last_checked_at": checked_at, "last_error": str(error)[:500]}, merge=True)
+
+
+@router.get("/recommendations", response_model=AiRecommendationsResponse)
+async def get_ai_recommendations(
+    q: str | None = Query(default=None, max_length=100),
+    per_page: int = Query(default=12, ge=4, le=24),
+    force_refresh: bool = Query(default=False),
+    decoded: dict = Depends(verify_firebase_token),
+):
+    uid = decoded["uid"]
+    doc = db.collection("users").document(uid).get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    user_data = doc.to_dict() or {}
+    _, access_token, github_username = _load_github_auth(decoded)
+
+    cache_key = f"q={q or ''}|per_page={per_page}|gh={github_username.lower()}"
+    cache_ref = _ai_cache_ref(uid, "recommendations", cache_key)
+    now = datetime.now(timezone.utc)
+
+    if not force_refresh:
+        cache_doc = cache_ref.get()
+        if cache_doc.exists:
+            cache_data = cache_doc.to_dict() or {}
+            cached_payload = cache_data.get("payload")
+            previous_signature = str(cache_data.get("signature") or "")
+            if isinstance(cached_payload, dict):
+                try:
+                    cached_response = AiRecommendationsResponse(**cached_payload)
+                    last_checked = _parse_iso_datetime(cache_data.get("last_checked_at"))
+                    if not last_checked:
+                        last_checked = _parse_iso_datetime(cache_data.get("updated_at"))
+                    if not last_checked or (now - last_checked).total_seconds() >= AI_RECOMMENDATIONS_TTL_SECONDS:
+                        asyncio.create_task(
+                            _refresh_recommendations_cache(
+                                cache_ref,
+                                user_data,
+                                access_token,
+                                github_username,
+                                q,
+                                per_page,
+                                previous_signature,
+                            )
+                        )
+                    return cached_response
+                except Exception:
+                    pass
+
+    fresh = await _build_ai_recommendations(user_data, access_token, github_username, q, per_page)
+    payload = fresh.model_dump(mode="json")
+    signature = _payload_signature(payload)
+    now_iso = now.isoformat()
+    cache_ref.set(
+        {
+            "payload": payload,
+            "signature": signature,
+            "updated_at": now_iso,
+            "last_checked_at": now_iso,
+            "last_error": "",
+        },
+        merge=True,
+    )
+    return fresh
+
+
+@router.get("/repo-intel/brief/{owner}/{repo}", response_model=AiRepoBriefResponse)
+async def get_repo_intel_brief(
+    owner: str,
+    repo: str,
+    force_refresh: bool = Query(default=False),
+    decoded: dict = Depends(verify_firebase_token),
+):
+    uid = decoded["uid"]
+    full_name = f"{owner}/{repo}"
+    _, access_token, github_username = _load_github_auth(decoded)
+    profile_markdown = _read_profile_markdown(github_username)
+
+    cache_ref = _ai_cache_ref(uid, "repo_brief", full_name.lower())
+    now = datetime.now(timezone.utc)
+
+    if not force_refresh:
+        cache_doc = cache_ref.get()
+        if cache_doc.exists:
+            cache_data = cache_doc.to_dict() or {}
+            cached_payload = cache_data.get("payload")
+            previous_signature = str(cache_data.get("signature") or "")
+            if isinstance(cached_payload, dict):
+                try:
+                    cached_response = AiRepoBriefResponse(**cached_payload)
+                    last_checked = _parse_iso_datetime(cache_data.get("last_checked_at"))
+                    if not last_checked:
+                        last_checked = _parse_iso_datetime(cache_data.get("updated_at"))
+                    if not last_checked or (now - last_checked).total_seconds() >= AI_REPO_INTEL_TTL_SECONDS:
+                        asyncio.create_task(
+                            _refresh_repo_brief_cache(
+                                cache_ref,
+                                full_name,
+                                access_token,
+                                profile_markdown,
+                                previous_signature,
+                            )
+                        )
+                    return cached_response
+                except Exception:
+                    pass
+
+    fresh = await _build_repo_brief(full_name, access_token, profile_markdown)
+    payload = fresh.model_dump(mode="json")
+    signature = _payload_signature(payload)
+    now_iso = now.isoformat()
+    cache_ref.set(
+        {
+            "payload": payload,
+            "signature": signature,
+            "updated_at": now_iso,
+            "last_checked_at": now_iso,
+            "last_error": "",
+        },
+        merge=True,
+    )
+    return fresh
+
+
+@router.get("/repo-intel/deep/{owner}/{repo}", response_model=AiRepoDeepDiveResponse)
+async def get_repo_intel_deep(
+    owner: str,
+    repo: str,
+    force_refresh: bool = Query(default=False),
+    decoded: dict = Depends(verify_firebase_token),
+):
+    uid = decoded["uid"]
+    full_name = f"{owner}/{repo}"
+    _, access_token, github_username = _load_github_auth(decoded)
+    profile_markdown = _read_profile_markdown(github_username)
+
+    cache_ref = _ai_cache_ref(uid, "repo_deep", full_name.lower())
+    now = datetime.now(timezone.utc)
+
+    if not force_refresh:
+        cache_doc = cache_ref.get()
+        if cache_doc.exists:
+            cache_data = cache_doc.to_dict() or {}
+            cached_payload = cache_data.get("payload")
+            previous_signature = str(cache_data.get("signature") or "")
+            if isinstance(cached_payload, dict):
+                try:
+                    cached_response = AiRepoDeepDiveResponse(**cached_payload)
+                    last_checked = _parse_iso_datetime(cache_data.get("last_checked_at"))
+                    if not last_checked:
+                        last_checked = _parse_iso_datetime(cache_data.get("updated_at"))
+                    if not last_checked or (now - last_checked).total_seconds() >= AI_REPO_INTEL_TTL_SECONDS:
+                        asyncio.create_task(
+                            _refresh_repo_deep_cache(
+                                cache_ref,
+                                full_name,
+                                access_token,
+                                profile_markdown,
+                                previous_signature,
+                            )
+                        )
+                    return cached_response
+                except Exception:
+                    pass
+
+    fresh = await _build_repo_deep(full_name, access_token, profile_markdown)
+    payload = fresh.model_dump(mode="json")
+    signature = _payload_signature(payload)
+    now_iso = now.isoformat()
+    cache_ref.set(
+        {
+            "payload": payload,
+            "signature": signature,
+            "updated_at": now_iso,
+            "last_checked_at": now_iso,
+            "last_error": "",
+        },
+        merge=True,
+    )
+    return fresh

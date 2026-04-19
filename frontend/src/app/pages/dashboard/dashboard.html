@@ -96,7 +96,7 @@
                       {{ repo.match }}%
                     </div>
                     <span class="repo-match-label">MATCH</span>
-                    <a class="btn-rr-orange repo-view-btn" [href]="repo.url" target="_blank" rel="noreferrer">View Repo</a>
+                    <button class="btn-rr-orange repo-view-btn" type="button" (click)="openContribution(repo.fullName)">View Repo</button>
                   </div>
                 </div>
               </div>

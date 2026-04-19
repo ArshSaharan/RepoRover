@@ -1,4 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import {
   LucideAngularModule, Search, Bell, TrendingUp, Zap, Star,
   Bookmark, ArrowUpRight, Activity, ExternalLink, GitMerge,
@@ -62,6 +63,7 @@ export class Dashboard implements OnInit {
 
   private githubDataService = inject(GitHubDataService);
   private aiService = inject(AiService);
+  private router = inject(Router);
 
   constructor(public authService: AuthService) {
     this.showOnboarding = this.authService.isNewUser;
@@ -194,6 +196,16 @@ export class Dashboard implements OnInit {
     if (match >= 95) return '#22c55e';
     if (match >= 85) return '#f97316';
     return '#eab308';
+  }
+
+  openContribution(fullName: string) {
+    const [owner, ...repoParts] = (fullName || '').split('/');
+    const repo = repoParts.join('/');
+    if (!owner || !repo) {
+      return;
+    }
+
+    this.router.navigate(['/contribute', owner, repo]);
   }
 
   formatCompactNumber(value: number): string {

@@ -1,4 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { LucideAngularModule, Search, Bell, TrendingUp, Star, Zap, Filter, ChevronRight } from 'lucide-angular';
 import { Sidebar } from '../../components/sidebar/sidebar';
 import { CommonModule } from '@angular/common';
@@ -33,6 +34,7 @@ export class Explore implements OnInit {
   loadError = '';
 
   private aiService = inject(AiService);
+  private router = inject(Router);
 
   trending: AiRepoRecommendation[] = [];
 
@@ -96,5 +98,15 @@ export class Explore implements OnInit {
 
   formatCompactNumber(value: number): string {
     return new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+  }
+
+  openContribution(fullName: string): void {
+    const [owner, ...repoParts] = (fullName || '').split('/');
+    const repo = repoParts.join('/');
+    if (!owner || !repo) {
+      return;
+    }
+
+    this.router.navigate(['/contribute', owner, repo]);
   }
 }

@@ -1,0 +1,187 @@
+<div class="rr-layout">
+  <app-sidebar></app-sidebar>
+
+  <div class="rr-main">
+    <header class="contrib-intel-topbar">
+      <div>
+        <div class="contrib-intel-title">Contribution Intelligence</div>
+        <div class="contrib-intel-sub">{{ fullName }}</div>
+      </div>
+
+      <button class="contrib-intel-refresh" type="button" (click)="loadBrief(true)" [disabled]="isLoadingBrief">
+        <lucide-icon [img]="RefreshCw" size="14"></lucide-icon>
+        <span>Refresh Brief</span>
+      </button>
+    </header>
+
+    <div class="contrib-intel-body">
+      @if (isLoadingBrief) {
+        <div class="rr-card p-4">Generating AI brief for this repository...</div>
+      }
+
+      @if (briefError) {
+        <div class="rr-card p-4 intel-error">
+          <lucide-icon [img]="AlertCircle" size="16" color="#ef4444"></lucide-icon>
+          <span>{{ briefError }}</span>
+        </div>
+      }
+
+      @if (brief) {
+        <section class="rr-card brief-card">
+          <div class="brief-header">
+            <div>
+              <div class="brief-label">AI PROJECT BRIEF</div>
+              <h2>{{ brief.full_name }}</h2>
+            </div>
+            <div class="brief-score">{{ brief.profile_alignment }}% profile fit</div>
+          </div>
+
+          <p class="brief-summary">{{ brief.summary }}</p>
+
+          <div class="brief-stats">
+            <span><strong>{{ brief.language || 'N/A' }}</strong> language</span>
+            <span><strong>{{ brief.stars }}</strong> stars</span>
+            <span><strong>{{ brief.open_issues }}</strong> open issues</span>
+          </div>
+
+          <div class="reason-box">
+            <div class="reason-title">
+              <lucide-icon [img]="Sparkles" size="14" color="#f97316"></lucide-icon>
+              Why You Should Contribute
+            </div>
+            <p>{{ brief.why_contribute }}</p>
+          </div>
+
+          <div class="brief-grid">
+            <div class="brief-list-card">
+              <div class="list-title">
+                <lucide-icon [img]="CheckCircle2" size="14" color="#22c55e"></lucide-icon>
+                Expected Value
+              </div>
+              <ul>
+                @for (item of brief.contribution_value; track item) {
+                  <li>{{ item }}</li>
+                }
+              </ul>
+            </div>
+
+            <div class="brief-list-card caution">
+              <div class="list-title">
+                <lucide-icon [img]="ShieldQuestion" size="14" color="#f59e0b"></lucide-icon>
+                Before You Start
+              </div>
+              <ul>
+                @for (item of brief.caution_notes; track item) {
+                  <li>{{ item }}</li>
+                }
+              </ul>
+            </div>
+          </div>
+
+          <div class="brief-actions">
+            <button class="btn-rr-orange" type="button" (click)="proceedWithContribution()" [disabled]="isLoadingDeep">
+              <lucide-icon [img]="Rocket" size="14"></lucide-icon>
+              Proceed To Deep Analysis
+            </button>
+            <a class="btn-rr-primary" [href]="brief.html_url" target="_blank" rel="noreferrer">
+              <lucide-icon [img]="ExternalLink" size="14"></lucide-icon>
+              Open GitHub Repo
+            </a>
+          </div>
+        </section>
+      }
+
+      @if (hasProceeded) {
+        <section class="rr-card deep-card">
+          <div class="deep-top-row">
+            <div class="deep-title">
+              <lucide-icon [img]="FolderTree" size="15" color="#f97316"></lucide-icon>
+              Project Structure + Target Issues
+            </div>
+            <button class="contrib-intel-refresh" type="button" (click)="proceedWithContribution(true)" [disabled]="isLoadingDeep">
+              <lucide-icon [img]="RefreshCw" size="14"></lucide-icon>
+              <span>Refresh Deep Dive</span>
+            </button>
+          </div>
+
+          @if (isLoadingDeep) {
+            <div class="p-4">Building file tree and issue targeting...</div>
+          }
+
+          @if (deepError) {
+            <div class="intel-error p-3">
+              <lucide-icon [img]="AlertCircle" size="16" color="#ef4444"></lucide-icon>
+              <span>{{ deepError }}</span>
+            </div>
+          }
+
+          @if (deep) {
+            <div class="deep-grid">
+              <div class="deep-panel">
+                <div class="panel-title">
+                  <lucide-icon [img]="FileCode2" size="14" color="#f97316"></lucide-icon>
+                  Docs Summary
+                </div>
+                <p>{{ deep.docs_summary }}</p>
+
+                <div class="sub-title">Quick Start</div>
+                <ul>
+                  @for (step of deep.quick_start; track step) {
+                    <li>{{ step }}</li>
+                  }
+                </ul>
+
+                <div class="sub-title">Architecture Notes</div>
+                <ul>
+                  @for (note of deep.architecture_notes; track note) {
+                    <li>{{ note }}</li>
+                  }
+                </ul>
+              </div>
+
+              <div class="deep-panel">
+                <div class="panel-title">
+                  <lucide-icon [img]="FolderTree" size="14" color="#f97316"></lucide-icon>
+                  File Tree
+                </div>
+                <div class="tree-wrap">
+                  @for (line of deep.tree_lines; track line + $index) {
+                    <div class="tree-line" [style.paddingLeft.px]="treeDepth(line) * 14">{{ treeLabel(line) }}</div>
+                  }
+                </div>
+              </div>
+            </div>
+
+            <div class="issues-panel">
+              <div class="panel-title">
+                <lucide-icon [img]="Target" size="14" color="#f97316"></lucide-icon>
+                Recommended Issues For Your Profile
+              </div>
+
+              @if (!deep.target_issues.length) {
+                <div class="p-3">No suitable open issues were found at the moment.</div>
+              } @else {
+                <div class="issues-list">
+                  @for (issue of deep.target_issues; track issue.number) {
+                    <a class="issue-item" [href]="issue.url" target="_blank" rel="noreferrer">
+                      <div class="issue-top">
+                        <div class="issue-name">#{{ issue.number }} · {{ issue.title }}</div>
+                        <span [class]="issueBadgeClass(issue.difficulty)">{{ issue.difficulty }}</span>
+                      </div>
+                      <div class="issue-reason">{{ issue.reason }}</div>
+                      <div class="issue-meta">
+                        <span>{{ issue.match_score }}% match</span>
+                        <span>{{ issue.labels.join(', ') || 'No labels' }}</span>
+                        <span class="open-link">Open Issue <lucide-icon [img]="ExternalLink" size="12"></lucide-icon></span>
+                      </div>
+                    </a>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </section>
+      }
+    </div>
+  </div>
+</div>
