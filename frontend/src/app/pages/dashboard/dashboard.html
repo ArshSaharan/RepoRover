@@ -135,9 +135,14 @@
                   <td>{{ formatCompactNumber(repo.open_issues) }}</td>
                   <td class="text-orange font-mono" style="font-size:0.78rem">{{ repo.owner }}</td>
                   <td>
-                    <a class="issue-action-btn" [href]="repo.html_url" target="_blank" rel="noreferrer">
-                      <lucide-icon [img]="ExternalLink" size="14"></lucide-icon>
-                    </a>
+                    <div class="issue-actions">
+                      <button class="issue-action-btn issue-action-view" type="button" (click)="openContribution(repo.full_name)">
+                        View
+                      </button>
+                      <a class="issue-action-btn" [href]="repo.html_url" target="_blank" rel="noreferrer" title="Open on GitHub">
+                        <lucide-icon [img]="ExternalLink" size="14"></lucide-icon>
+                      </a>
+                    </div>
                   </td>
                 </tr>
               }

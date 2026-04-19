@@ -13,8 +13,14 @@
       <div class="explore-topbar-center">
         <div class="explore-search">
           <lucide-icon [img]="Search" size="13" color="#525252"></lucide-icon>
-          <input type="text" [(ngModel)]="searchQuery" (keyup.enter)="loadRepos()" placeholder="Find repositories on GitHub...">
-          <span class="dash-search-kbd">CTRL + R</span>
+          <input
+            type="text"
+            [(ngModel)]="searchQuery"
+            (keyup.enter)="runSearch(true)"
+            (keydown.control.r)="onSearchShortcut($event)"
+            placeholder="Find repositories on GitHub..."
+          >
+          <button class="explore-search-btn" type="button" (click)="runSearch(true)">Search</button>
         </div>
         <div class="explore-status">
           <div class="live-dot"></div>
@@ -46,7 +52,7 @@
           <div class="row g-3 mt-1">
             @for (cat of forgeCategories; track cat.name) {
               <div class="col-6 col-md-3">
-                <div class="forge-cat-card rr-card">
+                <button class="forge-cat-card rr-card" type="button" (click)="applyForgeFilter(cat)">
                   <div class="forge-cat-emoji">{{ cat.emoji }}</div>
                   <div class="forge-cat-name">{{ cat.name }}</div>
                   <div class="forge-cat-meta">{{ cat.meta }}</div>
@@ -56,7 +62,7 @@
                     }
                   </div>
                   <lucide-icon [img]="ChevronRight" size="14" color="#525252" class="forge-cat-arrow"></lucide-icon>
-                </div>
+                </button>
               </div>
             }
           </div>
@@ -152,7 +158,7 @@
           </div>
         } @else {
           @for (t of trending; track t.full_name) {
-            <a class="trending-item text-reset text-decoration-none" [href]="t.html_url" target="_blank" rel="noreferrer">
+            <div class="trending-item">
               <div class="trending-item-left">
                 <div class="trending-name">{{ t.full_name }}</div>
                 <div class="trending-meta">{{ formatCompactNumber(t.stars) }} stars · {{ t.language || 'OSS' }}</div>
@@ -160,9 +166,9 @@
               </div>
               <div class="trending-item-right">
                 <div class="trending-sparkline"></div>
-                <span class="trending-delta up">gemini</span>
+                <button class="trending-view-btn" type="button" (click)="openContribution(t.full_name)">VIEW</button>
               </div>
-            </a>
+            </div>
           }
         }
       </div>

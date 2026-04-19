@@ -42,11 +42,17 @@ export class Explore implements OnInit {
     await this.loadRepos();
   }
 
-  async loadRepos() {
+  async loadRepos(forceRefresh = false) {
     this.isLoading = true;
     this.loadError = '';
     try {
-      const response = await this.aiService.getRecommendations(this.searchQuery || undefined, 12);
+      const normalizedQuery = this.searchQuery.trim();
+      const response = await this.aiService.getRecommendations(
+        normalizedQuery || undefined,
+        12,
+        { forceRefresh }
+      );
+
       this.focusArea = response.focus_area;
       this.matchPercent = response.match_percent;
       this.profileTags = response.profile_tags;
@@ -54,6 +60,11 @@ export class Explore implements OnInit {
         ...section,
         emoji: ['⚙️', '🚀', '🎨', '🧠'][index % 4],
       }));
+
+      if (!this.forgeCategories.length) {
+        this.forgeCategories = this.buildFallbackForges(response.recommendations);
+      }
+
       this.repos = response.recommendations;
       this.trending = [...response.recommendations]
         .sort((left, right) => right.match_probability - left.match_probability)
@@ -64,6 +75,53 @@ export class Explore implements OnInit {
     } finally {
       this.isLoading = false;
     }
+  }
+
+  async runSearch(forceRefresh = true): Promise<void> {
+    await this.loadRepos(forceRefresh);
+  }
+
+  async applyForgeFilter(section: AiFeaturedSection): Promise<void> {
+    const nextQuery = section.tags?.[0] || section.name || section.meta || this.searchQuery;
+    this.searchQuery = (nextQuery || '').trim();
+    await this.loadRepos(true);
+  }
+
+  onSearchShortcut(event: Event): void {
+    event.preventDefault();
+    this.runSearch(true).catch((error) => console.error(error));
+  }
+
+  private buildFallbackForges(recommendations: AiRepoRecommendation[]): Array<AiFeaturedSection & { emoji: string }> {
+    const buckets = new Map<string, AiRepoRecommendation[]>();
+
+    for (const repo of recommendations) {
+      const key = (repo.language || 'Open Source').toUpperCase();
+      const list = buckets.get(key) || [];
+      list.push(repo);
+      buckets.set(key, list);
+    }
+
+    return Array.from(buckets.entries())
+      .slice(0, 4)
+      .map(([language, repos], index) => {
+        const tags = Array.from(
+          new Set(
+            repos
+              .flatMap((repo) => repo.tags || [])
+              .map((tag) => (tag || '').trim())
+              .filter(Boolean)
+          )
+        ).slice(0, 3);
+
+        return {
+          name: `${language} Track`,
+          summary: `Recommended ${language} repositories based on your current profile signals.`,
+          meta: `From ${repos.length} matched repositories`,
+          tags: tags.length ? tags : [language.toLowerCase()],
+          emoji: ['⚙️', '🚀', '🎨', '🧠'][index % 4],
+        };
+      });
   }
 
   get sortedRepos(): AiRepoRecommendation[] {

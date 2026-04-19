@@ -22,6 +22,12 @@ import {
   AiService,
 } from '../../services/ai.service';
 
+type TreeNode = {
+  name: string;
+  kind: 'dir' | 'file';
+  children: Record<string, TreeNode>;
+};
+
 @Component({
   selector: 'app-contribute',
   imports: [CommonModule, LucideAngularModule, Sidebar],
@@ -52,6 +58,7 @@ export class Contribute implements OnInit {
   briefError = '';
   deepError = '';
   hasProceeded = false;
+  treeDisplayLines: string[] = [];
 
   private readonly route = inject(ActivatedRoute);
   private readonly aiService = inject(AiService);
@@ -94,22 +101,103 @@ export class Contribute implements OnInit {
 
     try {
       this.deep = await this.aiService.getRepoDeepDive(this.owner, this.repo, { forceRefresh });
+      this.treeDisplayLines = this.buildTreeDisplay(this.deep.tree_lines || []);
+      if (!this.treeDisplayLines.length) {
+        this.treeDisplayLines = (this.deep.tree_lines || []).map((line) => line.trim()).filter(Boolean);
+      }
     } catch (error) {
       console.error(error);
       this.deepError = 'Could not load deep project analysis right now.';
+      this.treeDisplayLines = [];
     } finally {
       this.isLoadingDeep = false;
     }
   }
 
-  treeDepth(line: string): number {
-    const match = line.match(/^\s*/);
-    const spaces = match ? match[0].length : 0;
-    return Math.max(0, Math.floor(spaces / 2));
+  private buildTreeDisplay(rawLines: string[]): string[] {
+    if (!rawLines.length) {
+      return [];
+    }
+
+    const root: TreeNode = { name: '', kind: 'dir', children: {} };
+
+    for (const rawLine of rawLines) {
+      const parsed = this.parseTreeLine(rawLine);
+      if (!parsed) {
+        continue;
+      }
+
+      const parts = parsed.path.split('/').map((part) => part.trim()).filter(Boolean);
+      if (!parts.length) {
+        continue;
+      }
+
+      let cursor = root;
+      for (let index = 0; index < parts.length; index += 1) {
+        const part = parts[index];
+        const isLeaf = index === parts.length - 1;
+        const kind: 'dir' | 'file' = isLeaf ? (parsed.isDir ? 'dir' : 'file') : 'dir';
+
+        if (!cursor.children[part]) {
+          cursor.children[part] = {
+            name: part,
+            kind,
+            children: {},
+          };
+        } else if (kind === 'dir') {
+          cursor.children[part].kind = 'dir';
+        }
+
+        cursor = cursor.children[part];
+      }
+    }
+
+    const lines: string[] = [];
+    this.renderTreeNodes(Object.values(root.children), '', lines);
+    return lines;
   }
 
-  treeLabel(line: string): string {
-    return line.trim();
+  private parseTreeLine(rawLine: string): { path: string; isDir: boolean } | null {
+    const trimmed = rawLine.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const match = trimmed.match(/^\[(D|F)\]\s+(.+)$/);
+    if (match) {
+      return {
+        isDir: match[1] === 'D',
+        path: match[2].trim(),
+      };
+    }
+
+    return {
+      isDir: false,
+      path: trimmed,
+    };
+  }
+
+  private renderTreeNodes(nodes: TreeNode[], prefix: string, output: string[]): void {
+    const sorted = [...nodes].sort((left, right) => {
+      if (left.kind !== right.kind) {
+        return left.kind === 'dir' ? -1 : 1;
+      }
+      return left.name.localeCompare(right.name);
+    });
+
+    sorted.forEach((node, index) => {
+      const isLast = index === sorted.length - 1;
+      const branch = isLast ? '\\-- ' : '|-- ';
+      const marker = node.kind === 'dir' ? '[D]' : '[F]';
+
+      output.push(`${prefix}${branch}${marker} ${node.name}`);
+
+      const children = Object.values(node.children);
+      if (children.length) {
+        const nextPrefix = `${prefix}${isLast ? '    ' : '|   '}`;
+        this.renderTreeNodes(children, nextPrefix, output);
+      }
+    });
   }
 
   issueBadgeClass(difficulty: string): string {

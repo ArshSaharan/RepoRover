@@ -324,6 +324,20 @@
 }
 .issue-action-btn:hover { border-color: var(--rr-orange); color: var(--rr-orange); }
 
+.issue-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.issue-action-view {
+  padding: 4px 9px;
+  font-size: 0.67rem;
+  font-family: var(--rr-font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 /* Right panel */
 .dash-right-panel {
   width: 240px;

@@ -266,6 +266,10 @@
   white-space: pre;
 }
 
+.tree-empty {
+  color: var(--rr-text-muted);
+}
+
 .issues-panel {
   margin-top: 12px;
 }

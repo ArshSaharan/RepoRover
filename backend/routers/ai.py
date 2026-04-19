@@ -4,7 +4,7 @@ import hashlib
 import json
 import os
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import datetime, timezone
 
 import google.generativeai as genai
@@ -29,6 +29,160 @@ db = firestore.client()
 AI_CACHE_COLLECTION = "ai_response_cache"
 AI_RECOMMENDATIONS_TTL_SECONDS = 5 * 60
 AI_REPO_INTEL_TTL_SECONDS = 10 * 60
+REPO_TREE_FORMAT_VERSION = "smart-v2"
+
+CORE_DIR_HINTS = {
+    "src",
+    "app",
+    "apps",
+    "backend",
+    "frontend",
+    "client",
+    "server",
+    "api",
+    "lib",
+    "libs",
+    "core",
+    "modules",
+    "module",
+    "services",
+    "service",
+    "packages",
+    "pkg",
+    "internal",
+    "cmd",
+    "cli",
+    "extensions",
+    "remote",
+    "resources",
+    "web",
+    "ui",
+    "engine",
+    "runtime",
+}
+
+TEST_DIR_HINTS = {
+    "test",
+    "tests",
+    "__tests__",
+    "spec",
+    "specs",
+    "e2e",
+    "integration",
+    "bench",
+    "benchmark",
+    "benchmarks",
+}
+
+DOC_DIR_HINTS = {
+    "docs",
+    "doc",
+    "documentation",
+    "examples",
+    "example",
+    "samples",
+    "sample",
+}
+
+TOOLING_DIR_HINTS = {
+    "build",
+    "scripts",
+    "script",
+    "tools",
+    "tooling",
+    "config",
+    "configs",
+    "ci",
+    "infra",
+    "devops",
+    "tasks",
+}
+
+CORE_DIR_PRIORITY = {
+    "src": 1,
+    "app": 2,
+    "apps": 3,
+    "backend": 4,
+    "frontend": 5,
+    "api": 6,
+    "server": 7,
+    "client": 8,
+    "packages": 9,
+    "lib": 10,
+    "extensions": 11,
+    "remote": 12,
+    "cli": 13,
+}
+
+TEST_DIR_PRIORITY = {
+    "test": 1,
+    "tests": 2,
+    "__tests__": 3,
+    "e2e": 4,
+    "spec": 5,
+}
+
+DOC_DIR_PRIORITY = {
+    "docs": 1,
+    "documentation": 2,
+    "examples": 3,
+    "samples": 4,
+}
+
+TOOLING_DIR_PRIORITY = {
+    "build": 1,
+    "scripts": 2,
+    "tools": 3,
+    "config": 4,
+    "ci": 5,
+}
+
+ROOT_FILE_PRIORITY = {
+    "readme.md": 1,
+    "readme": 2,
+    "contributing.md": 3,
+    "license": 4,
+    "package.json": 5,
+    "pnpm-workspace.yaml": 6,
+    "pnpm-lock.yaml": 7,
+    "yarn.lock": 8,
+    "package-lock.json": 9,
+    "pyproject.toml": 10,
+    "requirements.txt": 11,
+    "poetry.lock": 12,
+    "cargo.toml": 13,
+    "go.mod": 14,
+    "pom.xml": 15,
+    "build.gradle": 16,
+    "dockerfile": 17,
+}
+
+CODE_FILE_EXTENSIONS = {
+    ".py",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".go",
+    ".rs",
+    ".java",
+    ".cs",
+    ".cpp",
+    ".c",
+    ".cc",
+    ".h",
+    ".hpp",
+    ".swift",
+    ".kt",
+    ".php",
+    ".rb",
+    ".scala",
+    ".dart",
+    ".lua",
+    ".sh",
+    ".ps1",
+    ".sql",
+}
 
 if settings.GEMINI_API_KEY:
     genai.configure(api_key=settings.GEMINI_API_KEY)
@@ -392,19 +546,227 @@ def _decode_readme_content(payload: dict) -> str:
     return content
 
 
-def _format_tree_lines(tree_items: list[dict], max_depth: int = 4, max_items: int = 120) -> list[str]:
-    filtered = [item for item in tree_items if isinstance(item, dict) and item.get("path")]
-    filtered = [item for item in filtered if str(item.get("path")).count("/") <= max_depth]
-    filtered = sorted(filtered, key=lambda item: str(item.get("path")))[:max_items]
+def _is_code_file_path(path: str) -> bool:
+    extension = os.path.splitext(path.lower())[1]
+    return extension in CODE_FILE_EXTENSIONS or path.lower().endswith(".d.ts")
 
-    lines: list[str] = []
-    for item in filtered:
-        path = str(item.get("path"))
-        depth = path.count("/")
-        prefix = "  " * depth
-        icon = "[D]" if str(item.get("type")) == "tree" else "[F]"
-        lines.append(f"{prefix}{icon} {path}")
-    return lines
+
+def _classify_top_dir(top_dir: str, entries: list[dict]) -> str:
+    name = top_dir.lower()
+    if name.startswith("."):
+        return "hidden"
+    if name in CORE_DIR_HINTS:
+        return "core"
+    if name in TEST_DIR_HINTS:
+        return "tests"
+    if name in DOC_DIR_HINTS:
+        return "docs"
+    if name in TOOLING_DIR_HINTS:
+        return "tooling"
+
+    descendant_paths = [
+        str(entry.get("path") or "")
+        for entry in entries
+        if str(entry.get("path") or "").startswith(f"{top_dir}/")
+    ]
+    code_files = sum(1 for path in descendant_paths if _is_code_file_path(path))
+    test_like = sum(1 for path in descendant_paths if any(tag in path.lower() for tag in ("/test", "_test", "spec", "e2e")))
+    docs_like = sum(1 for path in descendant_paths if any(tag in path.lower() for tag in ("/docs", "readme", "/example")))
+
+    if code_files >= max(3, docs_like * 2):
+        return "core"
+    if test_like >= 3:
+        return "tests"
+    if docs_like >= max(2, code_files):
+        return "docs"
+    return "tooling"
+
+
+def _preview_dir_entries(
+    top_dir: str,
+    entries: list[dict],
+    max_depth: int,
+    max_items: int,
+    include_hidden: bool,
+) -> tuple[list[tuple[str, str]], int]:
+    prefix = f"{top_dir}/"
+    visible: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    descendant_total = 0
+
+    for entry in entries:
+        path = str(entry.get("path") or "")
+        if not path.startswith(prefix):
+            continue
+
+        relative = path[len(prefix) :]
+        if not relative:
+            continue
+        descendant_total += 1
+
+        parts = [part for part in relative.split("/") if part]
+        if not parts:
+            continue
+        if not include_hidden and any(part.startswith(".") for part in parts):
+            continue
+        if len(parts) - 1 > max_depth:
+            continue
+
+        kind = "D" if str(entry.get("type")) == "tree" else "F"
+        dedupe_key = f"{kind}:{relative}"
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        visible.append((kind, relative))
+
+    visible.sort(key=lambda item: (item[1].count("/"), 1 if item[0] == "F" else 0, item[1].lower()))
+    selected = visible[:max_items]
+    omitted = max(0, descendant_total - len(selected))
+    return selected, omitted
+
+
+def _format_tree_lines(tree_items: list[dict], max_items: int = 120) -> list[str]:
+    normalized: list[dict] = []
+    for item in tree_items:
+        if not isinstance(item, dict):
+            continue
+        raw_path = str(item.get("path") or "").strip().strip("/")
+        if not raw_path:
+            continue
+        normalized.append(
+            {
+                "path": raw_path,
+                "type": "tree" if str(item.get("type")) == "tree" else "blob",
+            }
+        )
+
+    if not normalized:
+        return []
+
+    entries_by_top: dict[str, list[dict]] = defaultdict(list)
+    top_dirs: set[str] = set()
+    root_files: set[str] = set()
+
+    for entry in normalized:
+        path = str(entry["path"])
+        top_dir = path.split("/", 1)[0]
+        entries_by_top[top_dir].append(entry)
+
+        if "/" not in path:
+            if entry["type"] == "tree":
+                top_dirs.add(top_dir)
+            else:
+                root_files.add(path)
+        else:
+            top_dirs.add(top_dir)
+
+    grouped: dict[str, list[str]] = {
+        "core": [],
+        "tests": [],
+        "docs": [],
+        "tooling": [],
+        "hidden": [],
+    }
+    for top_dir in sorted(top_dirs):
+        bucket = _classify_top_dir(top_dir, entries_by_top.get(top_dir, []))
+        grouped[bucket].append(top_dir)
+
+    def _sort_dirs(dirs: list[str], priority_map: dict[str, int]) -> list[str]:
+        return sorted(dirs, key=lambda name: (priority_map.get(name.lower(), 99), name.lower()))
+
+    grouped["core"] = _sort_dirs(grouped["core"], CORE_DIR_PRIORITY)
+    grouped["tests"] = _sort_dirs(grouped["tests"], TEST_DIR_PRIORITY)
+    grouped["docs"] = _sort_dirs(grouped["docs"], DOC_DIR_PRIORITY)
+    grouped["tooling"] = _sort_dirs(grouped["tooling"], TOOLING_DIR_PRIORITY)
+    grouped["hidden"] = sorted(grouped["hidden"], key=lambda value: value.lower())
+
+    output_entries: list[tuple[str, str]] = []
+    seen_paths: set[str] = set()
+
+    def _push(kind: str, path: str):
+        clean_path = path.strip().strip("/")
+        if not clean_path or clean_path in seen_paths:
+            return
+        seen_paths.add(clean_path)
+        output_entries.append((kind, clean_path))
+
+    def _append_category(
+        category_name: str,
+        dirs: list[str],
+        dir_limit: int,
+        depth_limit: int,
+        item_limit: int,
+    ):
+        if not dirs:
+            return
+
+        _push("D", category_name)
+        limited = dirs[:dir_limit]
+        for top_dir in limited:
+            category_base = f"{category_name}/{top_dir}"
+            _push("D", category_base)
+
+            preview, omitted = _preview_dir_entries(
+                top_dir=top_dir,
+                entries=entries_by_top.get(top_dir, []),
+                max_depth=depth_limit,
+                max_items=item_limit,
+                include_hidden=False,
+            )
+            for kind, relative in preview:
+                _push(kind, f"{category_base}/{relative}")
+
+            if omitted > 0:
+                _push("F", f"{category_base}/... {omitted} more entries")
+
+        if len(dirs) > dir_limit:
+            _push("F", f"{category_name}/... {len(dirs) - dir_limit} more directories")
+
+    _append_category("Core Product Code", grouped["core"], dir_limit=6, depth_limit=2, item_limit=12)
+    _append_category("Tests and Quality", grouped["tests"], dir_limit=3, depth_limit=2, item_limit=8)
+    _append_category("Docs and Examples", grouped["docs"], dir_limit=3, depth_limit=2, item_limit=8)
+    _append_category("Build and Tooling", grouped["tooling"], dir_limit=4, depth_limit=1, item_limit=6)
+
+    visible_root_files = sorted(
+        [name for name in root_files if not name.startswith(".")],
+        key=lambda name: (ROOT_FILE_PRIORITY.get(name.lower(), 99), name.lower()),
+    )
+    if visible_root_files:
+        _push("D", "Root Essentials")
+        for filename in visible_root_files[:10]:
+            _push("F", f"Root Essentials/{filename}")
+        if len(visible_root_files) > 10:
+            _push("F", f"Root Essentials/... {len(visible_root_files) - 10} more root files")
+
+    hidden_root_files = sorted([name for name in root_files if name.startswith(".")], key=lambda name: name.lower())
+    hidden_dirs = grouped["hidden"]
+    if hidden_dirs or hidden_root_files:
+        _push("D", "Hidden and Infra (collapsed)")
+        for hidden_dir in hidden_dirs[:6]:
+            hidden_base = f"Hidden and Infra (collapsed)/{hidden_dir}"
+            _push("D", hidden_base)
+            descendants = sum(
+                1
+                for entry in entries_by_top.get(hidden_dir, [])
+                if str(entry.get("path") or "").startswith(f"{hidden_dir}/")
+            )
+            if descendants > 0:
+                _push("F", f"{hidden_base}/... {descendants} hidden entries")
+
+        if len(hidden_dirs) > 6:
+            _push("F", f"Hidden and Infra (collapsed)/... {len(hidden_dirs) - 6} more hidden directories")
+        if hidden_root_files:
+            _push("F", f"Hidden and Infra (collapsed)/root-dotfiles/... {len(hidden_root_files)} hidden root files")
+
+    if not output_entries:
+        # Safety fallback if smart grouping fails for uncommon repository structures.
+        fallback = sorted(normalized, key=lambda entry: str(entry["path"]))[:max_items]
+        return [
+            f"[{'D' if str(entry['type']) == 'tree' else 'F'}] {entry['path']}"
+            for entry in fallback
+        ]
+
+    return [f"[{kind}] {path}" for kind, path in output_entries[:max_items]]
 
 
 def _issue_difficulty_from_labels(labels: list[str], comments: int) -> str:
@@ -888,7 +1250,7 @@ async def get_repo_intel_deep(
     _, access_token, github_username = _load_github_auth(decoded)
     profile_markdown = _read_profile_markdown(github_username)
 
-    cache_ref = _ai_cache_ref(uid, "repo_deep", full_name.lower())
+    cache_ref = _ai_cache_ref(uid, "repo_deep", f"{full_name.lower()}:{REPO_TREE_FORMAT_VERSION}")
     now = datetime.now(timezone.utc)
 
     if not force_refresh:

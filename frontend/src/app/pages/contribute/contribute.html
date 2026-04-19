@@ -142,11 +142,15 @@
               <div class="deep-panel">
                 <div class="panel-title">
                   <lucide-icon [img]="FolderTree" size="14" color="#f97316"></lucide-icon>
-                  File Tree
+                  Project Map Diagram
                 </div>
                 <div class="tree-wrap">
-                  @for (line of deep.tree_lines; track line + $index) {
-                    <div class="tree-line" [style.paddingLeft.px]="treeDepth(line) * 14">{{ treeLabel(line) }}</div>
+                  @if (!treeDisplayLines.length) {
+                    <div class="tree-line tree-empty">No file tree data available for this repository.</div>
+                  } @else {
+                    @for (line of treeDisplayLines; track line + $index) {
+                      <div class="tree-line">{{ line }}</div>
+                    }
                   }
                 </div>
               </div>

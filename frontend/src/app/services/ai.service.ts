@@ -141,7 +141,7 @@ export class AiService {
   }
 
   private repoDeepCacheKey(owner: string, repo: string): string {
-    return `rr:ai:repo-deep:${owner.toLowerCase()}/${repo.toLowerCase()}`;
+    return `rr:ai:repo-deep:v2:${owner.toLowerCase()}/${repo.toLowerCase()}`;
   }
 
   async getRecommendations(
@@ -244,6 +244,7 @@ export class AiService {
     const headers = await this.buildAuthHeaders();
     const params: Record<string, string> = {
       force_refresh: forceRefresh ? 'true' : 'false',
+      tree_mode: 'smart_v2',
     };
 
     const data = await firstValueFrom(
