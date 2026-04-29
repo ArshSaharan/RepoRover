@@ -11,6 +11,8 @@
       <div class="step-dot" [class.active]="step() >= 1" [class.done]="step() > 1"></div>
       <div class="step-line" [class.active]="step() > 1"></div>
       <div class="step-dot" [class.active]="step() >= 2" [class.done]="step() > 2"></div>
+      <div class="step-line" [class.active]="step() > 2"></div>
+      <div class="step-dot" [class.active]="step() >= 3" [class.done]="step() > 3"></div>
     </div>
 
     <!-- STEP 1: Display Name -->
@@ -45,8 +47,57 @@
     </div>
     }
 
-    <!-- STEP 2: GitHub -->
+    <!-- STEP 2: Tech Stack & Interests -->
     @if (step() === 2) {
+    <div class="onboarding-step">
+      <div class="step-icon">
+        <lucide-icon [img]="Zap" size="24" color="#f97316"></lucide-icon>
+      </div>
+      <h2 class="onboarding-title">Personalize Your Rover</h2>
+      <p class="onboarding-subtitle">Select your tech stack and interests to get better repository recommendations.</p>
+
+      <div class="onboarding-field">
+        <label>Your Tech Stack</label>
+        <div class="tags-container">
+          @for (skill of availableSkills; track skill) {
+            <button 
+              class="tag-button" 
+              [class.selected]="skills().includes(skill)"
+              (click)="toggleSkill(skill)"
+            >
+              {{ skill }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="onboarding-field" style="margin-top: 1rem;">
+        <label>Areas of Interest</label>
+        <div class="tags-container">
+          @for (interest of availableInterests; track interest) {
+            <button 
+              class="tag-button" 
+              [class.selected]="interests().includes(interest)"
+              (click)="toggleInterest(interest)"
+            >
+              {{ interest }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="onboarding-actions" style="display: flex; gap: 0.5rem; width: 100%; margin-top: auto;">
+        <button class="btn-onboarding-secondary" style="flex: 1; padding: 0.8rem; background: #262626; color: white; border: 1px solid #404040; border-radius: 8px;" (click)="goToStep(1)">Back</button>
+        <button class="btn-onboarding-primary" style="flex: 2;" (click)="goToStep(3)">
+          Continue
+          <lucide-icon [img]="ArrowRight" size="16"></lucide-icon>
+        </button>
+      </div>
+    </div>
+    }
+
+    <!-- STEP 3: GitHub -->
+    @if (step() === 3) {
     <div class="onboarding-step">
       <div class="step-icon">
         <lucide-icon [img]="Github" size="24" color="#f97316"></lucide-icon>
@@ -136,24 +187,33 @@
       }
 
       <!-- Finish button -->
-      <button
-        class="btn-onboarding-primary mt-auto"
-        [disabled]="isSaving()"
-        (click)="finish()"
-      >
-        @if (!isSaving()) {
-        <span>
-          <lucide-icon [img]="Check" size="16"></lucide-icon>
-          Get Started
-        </span>
-        }
-        @if (isSaving()) {
-        <span class="saving-text">
-          <div class="spinner-sm"></div>
-          Setting up...
-        </span>
-        }
-      </button>
+      <div class="onboarding-actions" style="display: flex; gap: 0.5rem; width: 100%; margin-top: auto;">
+        <button 
+          class="btn-onboarding-secondary" 
+          style="flex: 1; padding: 0.8rem; background: #262626; color: white; border: 1px solid #404040; border-radius: 8px;" 
+          (click)="goToStep(2)"
+          [disabled]="isSaving()"
+        >Back</button>
+        <button
+          class="btn-onboarding-primary"
+          style="flex: 2; display: flex; align-items: center; justify-content: center; gap: 0.5rem;"
+          [disabled]="isSaving()"
+          (click)="finish()"
+        >
+          @if (!isSaving()) {
+            <span>
+              <lucide-icon [img]="Check" size="16"></lucide-icon>
+              Get Started
+            </span>
+          }
+          @if (isSaving()) {
+            <span class="saving-text">
+              <div class="spinner-sm"></div>
+              Setting up...
+            </span>
+          }
+        </button>
+      </div>
     </div>
     }
   </div>

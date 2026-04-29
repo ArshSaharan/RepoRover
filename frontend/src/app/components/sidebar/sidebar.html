@@ -30,6 +30,7 @@
   <!-- System Nav -->
   <div class="sidebar-section">
     <div class="sidebar-section-label">SYSTEM</div>
+
     @for (item of systemItems; track item.route) {
       <a [routerLink]="item.route" routerLinkActive="active" class="sidebar-nav-item">
         <lucide-icon [img]="item.icon" size="15"></lucide-icon>

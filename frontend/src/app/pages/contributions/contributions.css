@@ -259,6 +259,236 @@
   width: max-content;
 }
 
+/* Manual contribution logging */
+.manual-section {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.manual-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.manual-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--rr-text-primary);
+}
+
+.manual-sub {
+  font-size: 0.72rem;
+  color: var(--rr-text-muted);
+  font-family: var(--rr-font-mono);
+  letter-spacing: 0.06em;
+}
+
+.manual-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.manual-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.manual-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.74rem;
+  color: var(--rr-text-muted);
+}
+
+.manual-field.full {
+  grid-column: 1 / -1;
+}
+
+.manual-field input,
+.manual-field select,
+.manual-field textarea {
+  background: var(--rr-bg-card);
+  border: 1px solid var(--rr-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--rr-text-primary);
+  font-size: 0.82rem;
+  transition: var(--rr-transition);
+}
+
+.manual-field input:focus,
+.manual-field select:focus,
+.manual-field textarea:focus {
+  border-color: var(--rr-border-hover);
+  outline: none;
+}
+
+.manual-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.manual-submit {
+  background: linear-gradient(135deg, #f97316, #f59e0b);
+  border: none;
+  color: #111;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--rr-transition);
+}
+
+.manual-submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.manual-log {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.manual-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.manual-item {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.manual-item-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.manual-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.manual-item-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--rr-text-primary);
+}
+
+.manual-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.manual-pill {
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(249, 115, 22, 0.15);
+  color: #f97316;
+  font-family: var(--rr-font-mono);
+  letter-spacing: 0.06em;
+}
+
+.manual-project {
+  font-size: 0.72rem;
+  color: var(--rr-text-muted);
+}
+
+.manual-date {
+  font-size: 0.7rem;
+  color: var(--rr-text-muted);
+  font-family: var(--rr-font-mono);
+}
+
+.manual-delete {
+  border: 1px solid var(--rr-border);
+  background: transparent;
+  color: var(--rr-text-muted);
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--rr-transition);
+}
+
+.manual-delete:hover:not(:disabled) {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.manual-delete:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.manual-desc {
+  font-size: 0.8rem;
+  color: var(--rr-text-secondary);
+  line-height: 1.5;
+}
+
+.manual-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.manual-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.manual-tag {
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--rr-border);
+  color: var(--rr-text-muted);
+}
+
+.manual-link {
+  font-size: 0.72rem;
+  color: #f97316;
+  text-decoration: none;
+}
+
+.manual-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 920px) {
+  .manual-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .manual-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .heatmap-week {
   display: grid;
   grid-template-rows: repeat(7, 28px);

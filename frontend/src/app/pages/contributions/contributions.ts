@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import {
   Activity,
@@ -11,6 +12,7 @@ import {
   LayoutDashboard,
   LucideAngularModule,
   Search,
+  Trash2,
   User,
 } from 'lucide-angular';
 
@@ -22,10 +24,15 @@ import {
   GitHubDataService,
   GitHubRecentContribution,
 } from '../../services/github-data.service';
+import {
+  ContributionCreate,
+  ContributionService,
+  ManualContribution,
+} from '../../services/contribution.service';
 
 @Component({
   selector: 'app-contributions',
-  imports: [CommonModule, RouterLink, RouterLinkActive, LucideAngularModule, Sidebar],
+  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive, LucideAngularModule, Sidebar],
   templateUrl: './contributions.html',
   styleUrl: './contributions.css',
 })
@@ -39,6 +46,7 @@ export class Contributions implements OnInit {
   readonly Bookmark = Bookmark;
   readonly User = User;
   readonly ExternalLink = ExternalLink;
+  readonly Trash2 = Trash2;
 
   readonly weeks = 14;
 
@@ -60,10 +68,32 @@ export class Contributions implements OnInit {
   monthMarkers: string[] = [];
   recentContributions: GitHubRecentContribution[] = [];
 
+  manualContributions: ManualContribution[] = [];
+  manualLoadError = '';
+  manualLoading = false;
+  isSavingManual = false;
+  deletingId: string | null = null;
+
+  contributionForm: ContributionCreate = {
+    title: '',
+    description: '',
+    category: 'PR',
+    project: '',
+    url: '',
+    tags: [],
+    occurred_at: '',
+  };
+  tagsInput = '';
+  categoryOptions = ['PR', 'Issue', 'Blog', 'Talk', 'Review', 'Documentation', 'Mentoring', 'Other'];
+
   private readonly githubDataService = inject(GitHubDataService);
+  private readonly contributionService = inject(ContributionService);
 
   async ngOnInit(): Promise<void> {
-    await this.loadContributions();
+    await Promise.all([
+      this.loadContributions(),
+      this.loadManualContributions(),
+    ]);
   }
 
   async loadContributions(forceRefresh = false): Promise<void> {
@@ -78,6 +108,83 @@ export class Contributions implements OnInit {
       this.loadError = 'Unable to load GitHub contributions right now.';
     } finally {
       this.isLoading = false;
+    }
+  }
+
+  async loadManualContributions(): Promise<void> {
+    this.manualLoading = true;
+    this.manualLoadError = '';
+    try {
+      this.manualContributions = await this.contributionService.getManualContributions();
+    } catch (error) {
+      console.error(error);
+      this.manualLoadError = 'Unable to load manual contributions right now.';
+    } finally {
+      this.manualLoading = false;
+    }
+  }
+
+  async submitManualContribution(): Promise<void> {
+    if (!this.contributionForm.title?.trim()) {
+      this.manualLoadError = 'Please enter a contribution title.';
+      return;
+    }
+
+    this.isSavingManual = true;
+    this.manualLoadError = '';
+
+    try {
+      const tags = this.tagsInput
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+
+      const payload: ContributionCreate = {
+        ...this.contributionForm,
+        title: this.contributionForm.title?.trim() || '',
+        description: this.contributionForm.description?.trim() || undefined,
+        project: this.contributionForm.project?.trim() || undefined,
+        url: this.contributionForm.url?.trim() || undefined,
+        occurred_at: this.contributionForm.occurred_at || undefined,
+        tags,
+      };
+
+      await this.contributionService.addContribution(payload);
+      await this.loadManualContributions();
+
+      this.contributionForm = {
+        title: '',
+        description: '',
+        category: this.contributionForm.category || 'PR',
+        project: '',
+        url: '',
+        tags: [],
+        occurred_at: '',
+      };
+      this.tagsInput = '';
+    } catch (error) {
+      console.error(error);
+      this.manualLoadError = 'Unable to save contribution right now.';
+    } finally {
+      this.isSavingManual = false;
+    }
+  }
+
+  async deleteManualContribution(entry: ManualContribution): Promise<void> {
+    if (!confirm(`Delete "${entry.title}"?`)) {
+      return;
+    }
+
+    this.deletingId = entry.id;
+    this.manualLoadError = '';
+    try {
+      await this.contributionService.deleteContribution(entry.id);
+      this.manualContributions = this.manualContributions.filter((item) => item.id !== entry.id);
+    } catch (error) {
+      console.error(error);
+      this.manualLoadError = 'Unable to delete contribution right now.';
+    } finally {
+      this.deletingId = null;
     }
   }
 
@@ -142,6 +249,17 @@ export class Contributions implements OnInit {
     }
 
     return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(parsed);
+  }
+
+  formatManualDate(value?: string | null): string {
+    if (!value) {
+      return 'Recently';
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return 'Recently';
+    }
+    return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' }).format(parsed);
   }
 
   private applyContributionData(data: GitHubContributionsResponse): void {

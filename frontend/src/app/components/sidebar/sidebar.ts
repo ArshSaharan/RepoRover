@@ -1,10 +1,11 @@
-import { Component, computed } from '@angular/core';
+import { Component, computed, OnInit, OnDestroy } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import {
   LucideAngularModule, LayoutDashboard, Compass, GitPullRequest,
-  Bookmark, Settings, Zap, ChevronRight, LogOut, User
+  Bookmark, Settings, Zap, ChevronRight, LogOut, User, Bell
 } from 'lucide-angular';
 import { AuthService } from '../../services/auth.service';
+import { NotificationService } from '../../services/notification.service';
 
 @Component({
   selector: 'app-sidebar',
@@ -12,7 +13,7 @@ import { AuthService } from '../../services/auth.service';
   templateUrl: './sidebar.html',
   styleUrl: './sidebar.css',
 })
-export class Sidebar {
+export class Sidebar implements OnInit, OnDestroy {
   readonly LayoutDashboard = LayoutDashboard;
   readonly Compass = Compass;
   readonly GitPullRequest = GitPullRequest;
@@ -22,6 +23,11 @@ export class Sidebar {
   readonly ChevronRight = ChevronRight;
   readonly LogOut = LogOut;
   readonly User = User;
+  readonly Bell = Bell;
+
+  unreadCount = 0;
+  private notifSub: any;
+  private pollingInterval: any;
 
   readonly userName = computed(() => {
     const profile = this.authService.userProfile();
@@ -54,7 +60,26 @@ export class Sidebar {
     { label: 'Settings', icon: Settings, route: '/settings' },
   ];
 
-  constructor(private authService: AuthService) { }
+  constructor(
+    private authService: AuthService,
+    private notificationService: NotificationService
+  ) { }
+
+  ngOnInit(): void {
+    // Only fetch if user is logged in
+    if (this.authService.user()) {
+      this.notifSub = this.notificationService.unreadCount.subscribe(count => {
+        this.unreadCount = count;
+      });
+      // Start polling for notifications every minute
+      this.pollingInterval = this.notificationService.startPolling(60000);
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.notifSub) this.notifSub.unsubscribe();
+    if (this.pollingInterval) clearInterval(this.pollingInterval);
+  }
 
   logout(): void {
     this.authService.logout();

@@ -40,6 +40,125 @@
         <div class="rr-card p-4 mb-3">{{ loadError }}</div>
       }
 
+      <section class="rr-card manual-section">
+        <div class="manual-header">
+          <div>
+            <div class="manual-title">Log a Contribution</div>
+            <div class="manual-sub">Track work that is not captured on GitHub.</div>
+          </div>
+        </div>
+
+        <form class="manual-form" (ngSubmit)="submitManualContribution()">
+          <div class="manual-grid">
+            <div class="manual-field">
+              <label>Title</label>
+              <input type="text" [(ngModel)]="contributionForm.title" name="title" placeholder="e.g. Reviewed API docs" required>
+            </div>
+            <div class="manual-field">
+              <label>Category</label>
+              <select [(ngModel)]="contributionForm.category" name="category">
+                @for (option of categoryOptions; track option) {
+                  <option [value]="option">{{ option }}</option>
+                }
+              </select>
+            </div>
+            <div class="manual-field">
+              <label>Project / Repo</label>
+              <input type="text" [(ngModel)]="contributionForm.project" name="project" placeholder="repo-rover/frontend">
+            </div>
+            <div class="manual-field">
+              <label>URL (optional)</label>
+              <input type="url" [(ngModel)]="contributionForm.url" name="url" placeholder="https://...">
+            </div>
+            <div class="manual-field">
+              <label>Occurred At</label>
+              <input type="date" [(ngModel)]="contributionForm.occurred_at" name="occurred_at">
+            </div>
+            <div class="manual-field">
+              <label>Tags</label>
+              <input type="text" [(ngModel)]="tagsInput" name="tags" placeholder="docs, mentoring, review">
+            </div>
+          </div>
+
+          <div class="manual-field full">
+            <label>Notes</label>
+            <textarea rows="3" [(ngModel)]="contributionForm.description" name="description" placeholder="Short summary"></textarea>
+          </div>
+
+          <div class="manual-actions">
+            <button class="manual-submit" type="submit" [disabled]="isSavingManual">
+              @if (!isSavingManual) {
+                <span>Save Contribution</span>
+              }
+              @if (isSavingManual) {
+                <span>Saving...</span>
+              }
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section class="manual-log">
+        <div class="recent-heading-row">
+          <h2 class="recent-title">Manual Contribution Log</h2>
+        </div>
+
+        @if (manualLoading) {
+          <div class="rr-card p-4">Loading manual contributions...</div>
+        }
+
+        @if (manualLoadError) {
+          <div class="rr-card p-4">{{ manualLoadError }}</div>
+        }
+
+        @if (!manualLoading && !manualContributions.length) {
+          <div class="rr-card p-4">No manual contributions logged yet.</div>
+        } @else {
+          <div class="manual-list">
+            @for (entry of manualContributions; track entry.id) {
+              <div class="rr-card manual-item">
+                <div class="manual-item-top">
+                  <div>
+                    <div class="manual-item-title">{{ entry.title }}</div>
+                    <div class="manual-item-meta">
+                      <span class="manual-pill">{{ entry.category }}</span>
+                      @if (entry.project) {
+                        <span class="manual-project">{{ entry.project }}</span>
+                      }
+                    </div>
+                  </div>
+                  <div class="manual-top-actions">
+                    <div class="manual-date">{{ formatManualDate(entry.occurred_at || entry.created_at) }}</div>
+                    <button
+                      class="manual-delete"
+                      type="button"
+                      [disabled]="deletingId === entry.id"
+                      (click)="deleteManualContribution(entry)"
+                      aria-label="Delete contribution"
+                    >
+                      <lucide-icon [img]="Trash2" size="14"></lucide-icon>
+                    </button>
+                  </div>
+                </div>
+                @if (entry.description) {
+                  <div class="manual-desc">{{ entry.description }}</div>
+                }
+                <div class="manual-footer">
+                  <div class="manual-tags">
+                    @for (tag of entry.tags; track tag) {
+                      <span class="manual-tag">{{ tag }}</span>
+                    }
+                  </div>
+                  @if (entry.url) {
+                    <a class="manual-link" [href]="entry.url" target="_blank" rel="noreferrer">View</a>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </section>
+
       <section class="stats-grid">
         <article class="rr-card stat-card stat-card-primary">
           <div class="stat-label">TOTAL PRS</div>

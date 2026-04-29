@@ -4,12 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { LucideAngularModule, User, Github, FileText, Check, AlertCircle, Search, Bell, MapPin, Clock, Eye, Edit2, Key, Loader2, Palette, X } from 'lucide-angular';
 import { AuthService, GitHubStats } from '../../services/auth.service';
 import { Sidebar } from '../../components/sidebar/sidebar';
+import { NotificationBell } from '../../components/notification-bell/notification-bell';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAngularModule, Sidebar],
+  imports: [CommonModule, FormsModule, LucideAngularModule, Sidebar, NotificationBell],
   templateUrl: './settings.html',
   styleUrl: './settings.css'
 })

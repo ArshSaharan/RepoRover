@@ -8,7 +8,6 @@ import {
   signOut,
   onAuthStateChanged,
   User,
-  getIdToken,
 } from '@angular/fire/auth';
 import { environment } from '../../environments/environment';
 
@@ -88,7 +87,7 @@ export class AuthService {
   async loginWithEmail(email: string, password: string): Promise<void> {
     try {
       const cred = await signInWithEmailAndPassword(this.auth, email, password);
-      const idToken = await getIdToken(cred.user);
+      const idToken = await cred.user.getIdToken();
 
       // Verify with backend and get profile
       const resp = await fetch(`${environment.apiUrl}/auth/login`, {
@@ -113,7 +112,7 @@ export class AuthService {
     try {
       // Create user in Firebase Auth (client-side)
       const cred = await createUserWithEmailAndPassword(this.auth, email, password);
-      const idToken = await getIdToken(cred.user);
+      const idToken = await cred.user.getIdToken();
 
       // Register on backend (stores in Firestore, does NOT re-create Firebase Auth user)
       const resp = await fetch(`${environment.apiUrl}/auth/register`, {
@@ -170,7 +169,7 @@ export class AuthService {
     const user = await this.waitForUser();
     if (!user) return null;
 
-    const idToken = await getIdToken(user);
+    const idToken = await user.getIdToken();
     const resp = await fetch(`${environment.apiUrl}/auth/github/profile`, {
       headers: { Authorization: `Bearer ${idToken}` },
     });
@@ -180,12 +179,21 @@ export class AuthService {
   }
 
   // ─── Complete onboarding ────────────────────────────────────
-  async completeOnboarding(displayName: string, githubUsername?: string): Promise<void> {
+  async completeOnboarding(
+    displayName: string,
+    skills: string[] = [],
+    interests: string[] = [],
+    githubUsername?: string
+  ): Promise<void> {
     const user = this.currentUser();
     if (!user) return;
 
-    const idToken = await getIdToken(user);
-    const body: any = { display_name: displayName };
+    const idToken = await user.getIdToken();
+    const body: any = { 
+      display_name: displayName,
+      skills,
+      interests
+    };
     if (githubUsername) body.github_username = githubUsername;
 
     await fetch(`${environment.apiUrl}/users/me`, {
@@ -205,7 +213,7 @@ export class AuthService {
     const user = await this.waitForUser();
     if (!user) return null;
 
-    const idToken = await getIdToken(user);
+    const idToken = await user.getIdToken();
     const resp = await fetch(`${environment.apiUrl}/users/me/llm-profile`, {
       headers: { Authorization: `Bearer ${idToken}` },
     });
@@ -219,7 +227,7 @@ export class AuthService {
     const user = await this.waitForUser();
     if (!user) return false;
 
-    const idToken = await getIdToken(user);
+    const idToken = await user.getIdToken();
     const resp = await fetch(`${environment.apiUrl}/users/me/llm-profile`, {
       method: 'PUT',
       headers: {
@@ -245,7 +253,7 @@ export class AuthService {
     const user = await this.waitForUser();
     if (!user) return null;
 
-    const idToken = await getIdToken(user);
+    const idToken = await user.getIdToken();
     const resp = await fetch(`${environment.apiUrl}/auth/github/profile`, {
       headers: { Authorization: `Bearer ${idToken}` },
     });
@@ -258,6 +266,6 @@ export class AuthService {
   async getIdToken(): Promise<string | null> {
     const user = await this.waitForUser();
     if (!user) return null;
-    return getIdToken(user);
+    return user.getIdToken();
   }
 }

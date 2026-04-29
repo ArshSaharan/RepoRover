@@ -4,11 +4,12 @@ import { LucideAngularModule, Search, Bell, TrendingUp, Star, Zap, Filter, Chevr
 import { Sidebar } from '../../components/sidebar/sidebar';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { NotificationBell } from '../../components/notification-bell/notification-bell';
 import { AiFeaturedSection, AiRepoRecommendation, AiService } from '../../services/ai.service';
 
 @Component({
   selector: 'app-explore',
-  imports: [LucideAngularModule, Sidebar, CommonModule, FormsModule],
+  imports: [LucideAngularModule, Sidebar, CommonModule, FormsModule, NotificationBell],
   templateUrl: './explore.html',
   styleUrl: './explore.css',
 })

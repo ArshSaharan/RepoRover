@@ -30,9 +30,30 @@ export class Onboarding implements OnInit {
 
   step = signal<number>(1);
   displayName = '';
+  skills = signal<string[]>([]);
+  interests = signal<string[]>([]);
   isLoadingGitHub = signal<boolean>(false);
   githubStats = signal<GitHubStats | null>(null);
   isSaving = signal<boolean>(false);
+
+  availableSkills = ['JavaScript', 'TypeScript', 'Python', 'Java', 'C++', 'C#', 'Go', 'Rust', 'Ruby', 'PHP', 'Swift', 'Kotlin', 'HTML', 'CSS', 'SQL', 'Shell'];
+  availableInterests = ['Frontend', 'Backend', 'Full Stack', 'DevOps', 'Machine Learning', 'AI', 'Data Science', 'Mobile', 'iOS', 'Android', 'Game Dev', 'Security', 'Web3', 'Open Source'];
+
+  toggleSkill(skill: string) {
+    if (this.skills().includes(skill)) {
+      this.skills.set(this.skills().filter(s => s !== skill));
+    } else {
+      this.skills.set([...this.skills(), skill]);
+    }
+  }
+
+  toggleInterest(interest: string) {
+    if (this.interests().includes(interest)) {
+      this.interests.set(this.interests().filter(i => i !== interest));
+    } else {
+      this.interests.set([...this.interests(), interest]);
+    }
+  }
 
   isGitHubUser = computed(() => {
     const profile = this.authService.userProfile();
@@ -84,6 +105,8 @@ export class Onboarding implements OnInit {
       const stats = this.githubStats();
       await this.authService.completeOnboarding(
         this.displayName.trim(),
+        this.skills(),
+        this.interests(),
         stats?.username || undefined,
       );
     } catch (e) {

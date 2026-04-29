@@ -8,6 +8,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { Sidebar } from '../../components/sidebar/sidebar';
 import { Onboarding } from '../../components/onboarding/onboarding';
+import { NotificationBell } from '../../components/notification-bell/notification-bell';
 import { AuthService } from '../../services/auth.service';
 import { GitHubDataService } from '../../services/github-data.service';
 import { AiRepoRecommendation, AiService } from '../../services/ai.service';
@@ -38,7 +39,7 @@ type DashboardActivity = {
 
 @Component({
   selector: 'app-dashboard',
-  imports: [LucideAngularModule, CommonModule, Sidebar, Onboarding],
+  imports: [LucideAngularModule, CommonModule, Sidebar, Onboarding, NotificationBell],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
 })

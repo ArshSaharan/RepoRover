@@ -158,6 +158,43 @@ class SavedReposResponse(BaseModel):
     repos: list[SavedRepo] = []
 
 
+class Notification(BaseModel):
+    id: str
+    message: str
+    read_status: bool = False
+    created_at: str
+
+
+class NotificationsResponse(BaseModel):
+    notifications: list[Notification] = []
+
+
+class ContributionCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    category: str = "General"
+    project: Optional[str] = None
+    url: Optional[str] = None
+    tags: list[str] = []
+    occurred_at: Optional[str] = None
+
+
+class Contribution(BaseModel):
+    id: str
+    title: str
+    description: Optional[str] = None
+    category: str = "General"
+    project: Optional[str] = None
+    url: Optional[str] = None
+    tags: list[str] = []
+    occurred_at: Optional[str] = None
+    created_at: str
+
+
+class ContributionsResponse(BaseModel):
+    contributions: list[Contribution] = []
+
+
 class AiFeaturedSection(BaseModel):
     name: str
     summary: str
